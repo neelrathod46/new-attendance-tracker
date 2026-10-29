@@ -1,8 +1,8 @@
 /// Proof that face liveness and identity verification both passed.
 ///
 /// Module 3 only consumes this result. Modules 4 (liveness) and 5 (embedding
-/// match) will produce it; until they exist, [FaceVerificationResult.debugBypass]
-/// is available for local testing behind a debug-only launch flag.
+/// match) produce it; [FaceVerificationResult.debugBypass] remains available
+/// for local Module 3 testing behind a debug-only launch flag.
 class FaceVerificationResult {
   /// Cosine distance at or below which two 128-d embeddings count as a match.
   static const double matchThreshold = 0.40;
