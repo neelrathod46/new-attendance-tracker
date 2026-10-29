@@ -64,8 +64,8 @@ The student must pass identity checks **before** the QR scanner is usable:
    to reject static photos and pre-recorded video.
 2. **Face verification (Module 5)** — after liveness passes, crop the ML Kit bounding
    box, resize to 112×112, run `MobileFaceNet.tflite` via `tflite_flutter` to get a
-   128-d vector, and compare it with the student's enrolled vector. Cosine distance
-   `< 0.40` = MATCH.
+   192-d vector, and compare it with the student's enrolled vector. Euclidean distance
+   `<= 0.90` = MATCH (the source app's comparison method; calibrate before real use).
 3. **QR scan (Module 3)** — only reachable after face verification returns MATCH.
    The student then scans whichever code is currently on the projector.
 4. **Submit** the QR token together with the verification result; the backend
@@ -75,12 +75,12 @@ The student must pass identity checks **before** the QR scanner is usable:
 - The QR scanner must not be reachable until verification succeeds. Do not add a
   release-mode bypass. The token simulator in the scanner is debug-only.
 - Module 3 enforces this today: `QrScannerScreen` requires a fresh
-  `FaceVerificationResult` (liveness passed, identity matched, cosine `< 0.40`,
+  `FaceVerificationResult` (liveness passed, identity matched, Euclidean distance `<= 0.90`,
   issued within the last 5 minutes) and does not initialize the camera otherwise.
   Modules 4/5 produce this result locally; no face-verification bypass exists.
-- Real enrollment and matching require the licensed `assets/models/mobilefacenet.tflite`
-  described by `assets/models/README.md`. It is not committed. Until it is supplied,
-  Module 5 shows an error and the scanner remains gated.
+- Enrollment and matching use `assets/mobile_face_net.tflite` (192-d output),
+  described by `assets/models/README.md`. Confirm the upstream model weights' license
+  before redistributing the app.
 - Liveness uses local eye/blink/smile signals as a prototype heuristic, not as
   production anti-spoof protection.
 - Client-side gating is UX; the backend must re-verify the embedding match and the
@@ -95,7 +95,7 @@ The student must pass identity checks **before** the QR scanner is usable:
   and only the newest nonce issued for the session should be accepted. Module 3 now
   tracks used nonces plus the newest accepted `ts` and rejects superseded codes, but
   this remains a client-side UX check and is bypassable.
-- Send only the 128-d embedding vector to the backend — never raw face images.
+- Send only the 192-d embedding vector to the backend — never raw face images.
 - Device binding: the offline demo shows Android build information only. A future
   online implementation must use a persistent installation UUID; build ids are not
   unique hardware UUIDs.
@@ -107,7 +107,7 @@ The student must pass identity checks **before** the QR scanner is usable:
 3. QR scanner — `mobile_scanner` camera, animated viewfinder, green/red validation
    card showing token age ("Valid Token | Generated 400ms ago").
 4. Liveness — camera preview, oval face frame, eye/smile meters, blink success flash.
-5. Embedding/verification — 128-d vector grid inspector, cosine-distance tool, and
+5. Embedding/verification — 192-d vector grid inspector, Euclidean-distance tool, and
    the MATCH/NO MATCH gate that unlocks scanning.
 6. Sync — student write triggers a realtime roster prepend on the lecturer page.
 

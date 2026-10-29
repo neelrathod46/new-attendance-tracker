@@ -10,7 +10,7 @@ import '../services/face_embedding_service.dart';
 import '../widgets/embedding_vector_grid.dart';
 
 /// Converts the liveness capture into an embedding and opens Module 3 only when
-/// it matches the authenticated student's enrolled 128-d reference vector.
+/// it matches the authenticated student's enrolled 192-d reference vector.
 class FaceVerificationScreen extends StatefulWidget {
   final StudentSession session;
   final LivenessResult liveness;
@@ -55,19 +55,19 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
       final capturedEmbedding = await _embeddingService.createEmbedding(
         widget.liveness,
       );
-      final distance = FaceEmbeddingService.cosineDistance(
+      final distance = FaceEmbeddingService.euclideanDistance(
         capturedEmbedding,
         enrollment.embedding,
       );
       final result = FaceVerificationResult(
         livenessPassed: true,
-        identityMatched: distance < FaceVerificationResult.matchThreshold,
-        cosineDistance: distance,
+        identityMatched: distance <= FaceVerificationResult.matchThreshold,
+        embeddingDistance: distance,
         studentId: enrollment.studentId,
         verifiedAtMs: DateTime.now().millisecondsSinceEpoch,
       );
       print(
-        '[FACE_VERIFY] Distance=${distance.toStringAsFixed(4)}, matched=${result.identityMatched}.',
+        '[FACE_VERIFY] Euclidean distance=${distance.toStringAsFixed(4)}, matched=${result.identityMatched}.',
       );
       if (mounted) {
         setState(() {
@@ -158,7 +158,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
               if (result != null) ...[
                 const SizedBox(height: 12),
                 Text(
-                  'Cosine distance: ${result.cosineDistance.toStringAsFixed(4)} / ${FaceVerificationResult.matchThreshold.toStringAsFixed(2)} maximum',
+                  'Embedding distance: ${result.embeddingDistance.toStringAsFixed(4)} / ${FaceVerificationResult.matchThreshold.toStringAsFixed(2)} maximum',
                   style: TextStyle(
                     color: matched
                         ? const Color(0xFF22C55E)

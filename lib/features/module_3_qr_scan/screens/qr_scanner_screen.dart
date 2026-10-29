@@ -47,7 +47,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _gateOpen = true;
       print(
         '[QR_SCAN] Verification gate open: student=${verification.studentId}, '
-        'distance=${verification.cosineDistance.toStringAsFixed(2)}',
+        'distance=${verification.embeddingDistance.toStringAsFixed(2)}',
       );
       print('[QR_SCAN] Initializing MobileScannerController...');
       _scannerController = MobileScannerController(

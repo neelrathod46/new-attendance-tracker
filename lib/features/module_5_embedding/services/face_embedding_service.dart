@@ -5,13 +5,14 @@ import 'package:image/image.dart' as img;
 import 'package:tflite_flutter/tflite_flutter.dart';
 
 import '../../module_4_liveness/models/liveness_result.dart';
+import '../models/face_embedding_model.dart';
 
-/// Runs the project's MobileFaceNet model and compares 128-d embeddings.
+/// Runs the supplied MobileFaceNet model and compares 192-d embeddings.
 ///
 /// The model must be bundled at [modelAsset]. This service intentionally has
 /// no fallback vector: a missing model must leave attendance locked.
 class FaceEmbeddingService {
-  static const modelAsset = 'assets/models/mobilefacenet.tflite';
+  static const modelAsset = FaceEmbeddingModel.assetPath;
   Interpreter? _interpreter;
 
   Future<List<double>> createEmbedding(LivenessResult liveness) async {
@@ -22,6 +23,7 @@ class FaceEmbeddingService {
         'MobileFaceNet model missing. Add $modelAsset and declare it in pubspec.yaml.',
       );
     }
+    _validateModelTensors(_interpreter!);
 
     final bytes = await File(liveness.imagePath).readAsBytes();
     final decoded = img.decodeImage(bytes);
@@ -53,15 +55,16 @@ class FaceEmbeddingService {
         width: right - left,
         height: bottom - top,
       ),
-      width: 112,
-      height: 112,
+      width: FaceEmbeddingModel.inputWidth,
+      height: FaceEmbeddingModel.inputHeight,
     );
     final input = [
       List.generate(
-        112,
-        (y) => List.generate(112, (x) {
+        FaceEmbeddingModel.inputHeight,
+        (y) => List.generate(FaceEmbeddingModel.inputWidth, (x) {
           final pixel = face.getPixel(x, y);
           return [
+            // This model expects RGB values normalized to approximately [-1, 1].
             (pixel.r - 127.5) / 128.0,
             (pixel.g - 127.5) / 128.0,
             (pixel.b - 127.5) / 128.0,
@@ -69,36 +72,51 @@ class FaceEmbeddingService {
         }),
       ),
     ];
-    final output = [List<double>.filled(128, 0)];
+    final output = [
+      List<double>.filled(FaceEmbeddingModel.embeddingDimensions, 0),
+    ];
     _interpreter!.run(input, output);
-    return _l2Normalize(output.first);
+    final embedding = output.first;
+    if (embedding.any((value) => !value.isFinite)) {
+      throw StateError('The model returned a non-finite embedding.');
+    }
+    return embedding;
   }
 
-  /// Cosine distance. A lower value is a closer identity match.
-  static double cosineDistance(List<double> a, List<double> b) {
-    if (a.length != 128 || b.length != 128) {
-      throw ArgumentError('Both face embeddings must contain 128 values.');
+  /// Euclidean distance used by the source app. A lower value is closer.
+  static double euclideanDistance(List<double> a, List<double> b) {
+    if (a.length != FaceEmbeddingModel.embeddingDimensions ||
+        b.length != FaceEmbeddingModel.embeddingDimensions) {
+      throw ArgumentError(
+        'Both face embeddings must contain '
+        '${FaceEmbeddingModel.embeddingDimensions} values.',
+      );
     }
-    var dot = 0.0;
-    var magnitudeA = 0.0;
-    var magnitudeB = 0.0;
+    var squaredDistance = 0.0;
     for (var i = 0; i < a.length; i++) {
-      dot += a[i] * b[i];
-      magnitudeA += a[i] * a[i];
-      magnitudeB += b[i] * b[i];
+      final difference = a[i] - b[i];
+      squaredDistance += difference * difference;
     }
-    if (magnitudeA == 0 || magnitudeB == 0) return double.infinity;
-    return 1 - dot / math.sqrt(magnitudeA * magnitudeB);
+    return math.sqrt(squaredDistance);
   }
 
-  static List<double> _l2Normalize(List<double> values) {
-    final magnitude = math.sqrt(
-      values.fold(0.0, (sum, value) => sum + value * value),
-    );
-    if (magnitude == 0) {
-      throw StateError('The model returned an empty embedding.');
+  static void _validateModelTensors(Interpreter interpreter) {
+    final inputShape = interpreter.getInputTensor(0).shape;
+    final outputShape = interpreter.getOutputTensor(0).shape;
+    const expectedInput = [1, 112, 112, 3];
+    const expectedOutput = [1, FaceEmbeddingModel.embeddingDimensions];
+    if (inputShape.toString() != expectedInput.toString()) {
+      throw StateError(
+        'Unsupported MobileFaceNet input shape $inputShape; '
+        'expected $expectedInput.',
+      );
     }
-    return values.map((value) => value / magnitude).toList(growable: false);
+    if (outputShape.toString() != expectedOutput.toString()) {
+      throw StateError(
+        'Unsupported MobileFaceNet output shape $outputShape; '
+        'expected $expectedOutput.',
+      );
+    }
   }
 
   void dispose() {

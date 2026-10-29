@@ -33,7 +33,7 @@ void main() {
       expect(session.sessionToken, contains('offline.STU_001'));
     });
 
-    test('enrollment profile rejects non-128 vectors', () {
+    test('enrollment profile rejects non-192 vectors', () {
       expect(
         () => EnrollmentProfile(studentId: 'STU_001', embedding: const [1, 2]),
         throwsArgumentError,

@@ -8,7 +8,7 @@ standalone lecturer page that rotates a classroom QR code every two seconds.
 1. Open the app and choose **Continue offline** or **Skip Supabase sign-in**.
    Enter any student ID with at least three characters.
 2. Choose **Enroll face** and follow the live open-eyes, blink, reopen, and smile
-   prompts. Review the 128-value embedding and save it locally in the current app
+   prompts. Review the 192-value embedding and save it locally in the current app
    session.
 3. Choose **Check in**, pass the same liveness prompts, and wait for the local
    face comparison to show MATCH.
@@ -18,12 +18,11 @@ standalone lecturer page that rotates a classroom QR code every two seconds.
 
 ## Requirements for real face matching
 
-The MobileFaceNet model is not included in this repository. Obtain a properly
-licensed TFLite model with the input/output contract documented in
-[`assets/models/README.md`](assets/models/README.md), place it at
-`assets/models/mobilefacenet.tflite`, then declare it under `flutter.assets` in
-`pubspec.yaml`. Without that model, the app intentionally reports the missing
-asset and does not unlock the QR scanner.
+The supplied MobileFaceNet model is at `assets/mobile_face_net.tflite` and is
+declared under `flutter.assets` in `pubspec.yaml`. It returns a 192-value
+embedding. The app checks its input and output tensor shapes before use. See
+[`assets/models/README.md`](assets/models/README.md) for preprocessing, threshold,
+and model attribution details.
 
 Enrollment and the generated session exist only in memory. Restarting the app
 clears them and requires a new offline login and enrollment. Face images are

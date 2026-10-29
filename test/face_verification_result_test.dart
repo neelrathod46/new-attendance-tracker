@@ -8,26 +8,26 @@ void main() {
     FaceVerificationResult result({
       bool livenessPassed = true,
       bool identityMatched = true,
-      double cosineDistance = 0.20,
+      double embeddingDistance = 0.20,
       int? verifiedAtMs,
     }) {
       return FaceVerificationResult(
         livenessPassed: livenessPassed,
         identityMatched: identityMatched,
-        cosineDistance: cosineDistance,
+        embeddingDistance: embeddingDistance,
         studentId: 'STU_001',
         verifiedAtMs: verifiedAtMs ?? now,
       );
     }
 
-    test('Passed liveness + match under 0.40 unlocks the scanner', () {
+    test('Passed liveness + match at or under 0.90 unlocks the scanner', () {
       expect(result().isVerified, isTrue);
       expect(result().isUsableAt(now), isTrue);
     });
 
-    test('Cosine distance exactly 0.40 does not count as a match', () {
-      expect(result(cosineDistance: 0.40).isVerified, isFalse);
-      expect(result(cosineDistance: 0.39).isVerified, isTrue);
+    test('Euclidean distance above 0.90 does not count as a match', () {
+      expect(result(embeddingDistance: 0.90).isVerified, isTrue);
+      expect(result(embeddingDistance: 0.91).isVerified, isFalse);
     });
 
     test('Liveness or identity failure keeps the scanner locked', () {

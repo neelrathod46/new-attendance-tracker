@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// On-screen inspector for a 128-d MobileFaceNet vector.
+/// On-screen inspector for the supplied 192-d MobileFaceNet vector.
 class EmbeddingVectorGrid extends StatelessWidget {
   final List<double> values;
 
@@ -12,7 +12,7 @@ class EmbeddingVectorGrid extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(
-          '128-d embedding (${values.length} values)',
+          '192-d embedding (${values.length} values)',
           style: const TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
         ),
         const SizedBox(height: 8),
