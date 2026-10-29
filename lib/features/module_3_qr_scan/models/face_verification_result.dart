@@ -1,8 +1,7 @@
 /// Proof that face liveness and identity verification both passed.
 ///
 /// Module 3 only consumes this result. Modules 4 (liveness) and 5 (embedding
-/// match) produce it; [FaceVerificationResult.debugBypass] remains available
-/// for local Module 3 testing behind a debug-only launch flag.
+/// match) produce it; there is no face-verification bypass.
 class FaceVerificationResult {
   /// Cosine distance at or below which two 128-d embeddings count as a match.
   static const double matchThreshold = 0.40;
@@ -32,16 +31,5 @@ class FaceVerificationResult {
   bool isUsableAt(int nowMs) {
     final ageMs = nowMs - verifiedAtMs;
     return isVerified && ageMs >= 0 && ageMs <= maxAgeMs;
-  }
-
-  /// Debug-only stand-in so Module 3 can be exercised before Modules 4/5 exist.
-  factory FaceVerificationResult.debugBypass({int? nowMs}) {
-    return FaceVerificationResult(
-      livenessPassed: true,
-      identityMatched: true,
-      cosineDistance: 0.12,
-      studentId: 'DEBUG_STUDENT',
-      verifiedAtMs: nowMs ?? DateTime.now().millisecondsSinceEpoch,
-    );
   }
 }

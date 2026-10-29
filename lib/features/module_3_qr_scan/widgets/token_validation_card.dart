@@ -9,11 +9,13 @@ import '../models/qr_payload.dart';
 class TokenValidationCard extends StatefulWidget {
   final QrPayload payload;
   final VoidCallback onDismiss;
+  final VoidCallback? onSkipOnlineSubmit;
 
   const TokenValidationCard({
     super.key,
     required this.payload,
     required this.onDismiss,
+    this.onSkipOnlineSubmit,
   });
 
   @override
@@ -284,6 +286,19 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                         child: const Text('Scan Again'),
                       ),
                     ),
+                    if (isValid && widget.onSkipOnlineSubmit != null) ...[
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: FilledButton(
+                          onPressed: widget.onSkipOnlineSubmit,
+                          style: FilledButton.styleFrom(
+                            backgroundColor: const Color(0xFF0369A1),
+                            padding: const EdgeInsets.symmetric(vertical: 12),
+                          ),
+                          child: const Text('Skip roster submit'),
+                        ),
+                      ),
+                    ],
                   ],
                 ),
               ],

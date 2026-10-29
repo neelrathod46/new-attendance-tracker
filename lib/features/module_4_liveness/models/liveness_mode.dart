@@ -1,0 +1,1 @@
+enum LivenessMode { enroll, verify }

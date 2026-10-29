@@ -1,28 +1,14 @@
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
-import 'features/module_3_qr_scan/models/face_verification_result.dart';
-import 'features/module_3_qr_scan/screens/qr_scanner_screen.dart';
-import 'features/module_4_liveness/screens/liveness_screen.dart';
+import 'features/module_1_auth/screens/auth_screen.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
-
-  // Module 3 is gated on a passed liveness + identity verification. Debug builds
-  // may still opt into a stand-in result to exercise the scanner directly.
-  final debugBypass =
-      kDebugMode && const bool.fromEnvironment('BYPASS_FACE_VERIFICATION');
-  final verification = debugBypass
-      ? FaceVerificationResult.debugBypass()
-      : null;
-
-  runApp(AttendanceApp(verification: verification));
+  runApp(const AttendanceApp());
 }
 
 class AttendanceApp extends StatelessWidget {
-  final FaceVerificationResult? verification;
-
-  const AttendanceApp({super.key, this.verification});
+  const AttendanceApp({super.key});
 
   @override
   Widget build(BuildContext context) {
@@ -39,11 +25,7 @@ class AttendanceApp extends StatelessWidget {
         ),
         useMaterial3: true,
       ),
-      // Existing installs may still use the debug-only Module 3 test route.
-      // Production begins with liveness; Auth will supply its enrollment profile.
-      home: verification == null
-          ? const LivenessScreen(enrollment: null)
-          : QrScannerScreen(verification: verification),
+      home: const AuthScreen(),
     );
   }
 }

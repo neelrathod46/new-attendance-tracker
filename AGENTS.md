@@ -10,14 +10,12 @@ disagree, this file wins. `README.md` is empty.
 - `flutter pub get`
 - `flutter analyze` — currently clean. Excludes `build/**` and `android/**`;
   `deprecated_member_use` is globally ignored; `avoid_print` is disabled on purpose.
-- `flutter test` — 4 unit tests in `test/widget_test.dart`. Despite the filename they
-  test `QrPayload`, not widgets.
+- `flutter test` — unit tests cover QR validation, face-gate rules, embedding math,
+  and offline auth/session validation. They do not exercise camera hardware or TFLite.
 - Single test: `flutter test test/widget_test.dart --plain-name 'Replay attack'`
 - `flutter run` / `flutter build apk --debug` — Android only; no ios/web/desktop
-  platform directories exist. By default the app starts on Module 3's locked screen.
-- `flutter run --dart-define=BYPASS_FACE_VERIFICATION=true` — debug-only stand-in
-  verification so Module 3 can be exercised before Modules 4/5 exist. Release builds
-  ignore it and always start locked.
+  platform directories exist. The app starts at local student login. QR scanning is
+  gated on liveness and a real on-device face match; there is no face bypass.
 - CI (`.github/workflows/build.yml`) builds a debug APK on every push and uploads an
   artifact. It does not run analyze or tests; run them locally first.
 
@@ -30,14 +28,15 @@ disagree, this file wins. `README.md` is empty.
 
 ## Repo layout and entrypoints
 
-- `lib/main.dart` → `QrScannerScreen` (Module 3) is currently the only screen. It
-  accepts an optional `FaceVerificationResult`; without a fresh passed result the
-  screen renders locked and never initializes the camera. New work must slot into the
-  mandated feature layout below.
+- `lib/main.dart` → Module 1 local login. The offline session leads through Module 4
+  liveness, Module 5 local embedding verification, and Module 3 QR scanning.
+- Offline login/session and face enrollment are mock, in-memory data. The shown token
+  is not an authentication JWT, and device display data is not persistent binding.
 - Theme: dark slate (`0xFF0F172A` background, `0xFF1E293B` surfaces) with sky-blue
   `0xFF38BDF8` and green `0xFF22C55E` accents. Match it in new UI.
 - Feature layout is mandated: `lib/features/module_{1_auth,2_qr_gen,3_qr_scan,
-  4_liveness,5_embedding,6_sync}/`. Only `module_3_qr_scan/` exists.
+  4_liveness,5_embedding,6_sync}/`. Initial offline implementations exist for Modules
+  1, 3, 4 and 5. Modules 2 and 6 are not implemented in Flutter.
 - `index.html` is the lecturer projector page: plain HTML/JS, no build step,
   `qrcodejs` from CDN, QR regenerated every 2000 ms, fake check-ins every 4 s.
 - `moire_detection.py` is a standalone OpenCV screen-recapture check
@@ -78,7 +77,12 @@ The student must pass identity checks **before** the QR scanner is usable:
 - Module 3 enforces this today: `QrScannerScreen` requires a fresh
   `FaceVerificationResult` (liveness passed, identity matched, cosine `< 0.40`,
   issued within the last 5 minutes) and does not initialize the camera otherwise.
-  The Modules 4/5 screens that produce that result do not exist yet.
+  Modules 4/5 produce this result locally; no face-verification bypass exists.
+- Real enrollment and matching require the licensed `assets/models/mobilefacenet.tflite`
+  described by `assets/models/README.md`. It is not committed. Until it is supplied,
+  Module 5 shows an error and the scanner remains gated.
+- Liveness uses local eye/blink/smile signals as a prototype heuristic, not as
+  production anti-spoof protection.
 - Client-side gating is UX; the backend must re-verify the embedding match and the
   QR token. Never trust a client "verified" flag.
 
@@ -92,7 +96,9 @@ The student must pass identity checks **before** the QR scanner is usable:
   tracks used nonces plus the newest accepted `ts` and rejects superseded codes, but
   this remains a client-side UX check and is bypassable.
 - Send only the 128-d embedding vector to the backend — never raw face images.
-- Device binding: `device_info_plus` hardware UUID; one student account ↔ one phone.
+- Device binding: the offline demo shows Android build information only. A future
+  online implementation must use a persistent installation UUID; build ids are not
+  unique hardware UUIDs.
 
 ### Modules
 
@@ -113,7 +119,8 @@ The student must pass identity checks **before** the QR scanner is usable:
   (e.g. `[QR_SCAN]`). This is why `avoid_print` is off.
 - No unused heavy dependencies. Allowed: `mobile_scanner`,
   `google_mlkit_face_detection`, `tflite_flutter`, `device_info_plus`, official
-  Firebase/Supabase SDKs. Only `mobile_scanner` is in `pubspec.yaml` today.
+  Firebase/Supabase SDKs. `camera`, ML Kit, TFLite, `image`, `mobile_scanner`, and
+  `device_info_plus` are currently declared.
 
 ## QR token contract (as implemented)
 
@@ -123,15 +130,15 @@ The student must pass identity checks **before** the QR scanner is usable:
   1500 ms in the future, and age > 3000 ms.
 - Tests inject time via `QrPayload.parse(..., mockCurrentTimeMs:)`; add cases there
   instead of widget-testing the camera.
-- `TokenValidationCard` shows a 3.00 s meter and only offers "Scan Again" — there is
-  no post-scan liveness CTA. `QrScannerScreen` advances the newest-`ts` watermark only
-  when a token validates.
+- `TokenValidationCard` shows a 3.00 s meter and, for a valid token, offers a button
+  to skip the future online roster submission. The offline flow ends after local QR
+  validation; it does not create or sync an attendance record.
 
 ## Known inconsistencies (confirm before changing behavior)
 
-- Order: Module 3 is now gated and no longer offers a liveness CTA, but the producing
-  Modules 4/5 do not exist. `main.dart` therefore starts locked unless the debug
-  bypass flag is set.
+- Offline flow: local login/session and Modules 4/5 have initial implementations, but
+  a real end-to-end run requires the MobileFaceNet asset and physical-device checks
+  for camera streaming and inference.
 - Replay: spec requires server-side nonce checks; Module 3 only has an in-memory
   nonce set plus a newest-`ts` watermark.
 - Time source: `ts` comes from the lecturer browser clock and is compared against the

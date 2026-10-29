@@ -23,7 +23,7 @@ jobs:
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --debug --dart-define=BYPASS_FACE_VERIFICATION=true
+        run: flutter build apk --debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

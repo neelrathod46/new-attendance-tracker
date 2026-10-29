@@ -47,10 +47,5 @@ void main() {
       final future = result(verifiedAtMs: now + 1000);
       expect(future.isUsableAt(now), isFalse);
     });
-
-    test('Debug bypass produces a usable result', () {
-      final bypass = FaceVerificationResult.debugBypass(nowMs: now);
-      expect(bypass.isUsableAt(now), isTrue);
-    });
   });
 }

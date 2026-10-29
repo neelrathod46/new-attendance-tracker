@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
+import '../../module_1_auth/models/student_session.dart';
 import '../models/face_verification_result.dart';
 import '../models/qr_payload.dart';
 import '../widgets/scanner_overlay.dart';
@@ -17,8 +18,9 @@ import '../widgets/token_validation_card.dart';
 /// to them.
 class QrScannerScreen extends StatefulWidget {
   final FaceVerificationResult? verification;
+  final StudentSession? session;
 
-  const QrScannerScreen({super.key, this.verification});
+  const QrScannerScreen({super.key, this.verification, this.session});
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
@@ -370,6 +372,20 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   ? TokenValidationCard(
                       payload: _latestPayload!,
                       onDismiss: _resumeScanning,
+                      onSkipOnlineSubmit: () {
+                        print(
+                          '[QR_SCAN] Roster submit skipped offline '
+                          'student=${widget.session?.studentId}.',
+                        );
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Attendance was not sent. Roster sync needs Supabase.',
+                            ),
+                          ),
+                        );
+                        _resumeScanning();
+                      },
                     )
                   : _buildAwaitingScannerHint(),
             ),
@@ -436,7 +452,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               const SizedBox(height: 10),
               const Text(
                 'Liveness and identity verification must pass before the QR scanner '
-                'unlocks. Complete both checks, then return here.',
+                'unlocks. Enroll and check in from the session card.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
                   color: Colors.white70,
@@ -444,28 +460,6 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   height: 1.4,
                 ),
               ),
-              if (kDebugMode) ...[
-                const SizedBox(height: 24),
-                Container(
-                  padding: const EdgeInsets.all(12),
-                  decoration: BoxDecoration(
-                    color: const Color(0xFF1E293B),
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: const Color(0xFF334155)),
-                  ),
-                  child: const Text(
-                    'Module 3 testing only:\n'
-                    'flutter run --dart-define=BYPASS_FACE_VERIFICATION=true',
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontFamily: 'monospace',
-                      color: Color(0xFF94A3B8),
-                      fontSize: 11,
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
             ],
           ),
         ),

@@ -1,20 +1,23 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 
+import '../../module_1_auth/models/student_session.dart';
 import '../../module_3_qr_scan/models/face_verification_result.dart';
 import '../../module_3_qr_scan/screens/qr_scanner_screen.dart';
 import '../../module_4_liveness/models/liveness_result.dart';
-import '../models/enrollment_profile.dart';
 import '../services/face_embedding_service.dart';
+import '../widgets/embedding_vector_grid.dart';
 
 /// Converts the liveness capture into an embedding and opens Module 3 only when
 /// it matches the authenticated student's enrolled 128-d reference vector.
 class FaceVerificationScreen extends StatefulWidget {
-  final EnrollmentProfile? enrollment;
+  final StudentSession session;
   final LivenessResult liveness;
 
   const FaceVerificationScreen({
     super.key,
-    required this.enrollment,
+    required this.session,
     required this.liveness,
   });
 
@@ -25,6 +28,7 @@ class FaceVerificationScreen extends StatefulWidget {
 class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
   final _embeddingService = FaceEmbeddingService();
   FaceVerificationResult? _result;
+  List<double>? _capturedEmbedding;
   String? _error;
   var _checking = false;
 
@@ -35,7 +39,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
   }
 
   Future<void> _verify() async {
-    final enrollment = widget.enrollment;
+    final enrollment = widget.session.enrollment;
     if (enrollment == null) {
       setState(
         () => _error = 'No enrolled face is available. Complete authenticated enrollment before checking attendance.',
@@ -66,7 +70,10 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
         '[FACE_VERIFY] Distance=${distance.toStringAsFixed(4)}, matched=${result.identityMatched}.',
       );
       if (mounted) {
-        setState(() => _result = result);
+        setState(() {
+          _capturedEmbedding = capturedEmbedding;
+          _result = result;
+        });
       }
     } catch (error) {
       print('[FACE_VERIFY] Verification failed: $error');
@@ -76,10 +83,27 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
         );
       }
     } finally {
+      await _deleteCapture();
       if (mounted) {
         setState(() => _checking = false);
       }
     }
+  }
+
+  Future<void> _deleteCapture() async {
+    try {
+      await File(widget.liveness.imagePath).delete();
+    } catch (_) {}
+  }
+
+  void _openScanner(FaceVerificationResult result) {
+    Navigator.of(context).pushAndRemoveUntil(
+      MaterialPageRoute(
+        builder: (_) =>
+            QrScannerScreen(verification: result, session: widget.session),
+      ),
+      (route) => route.isFirst,
+    );
   }
 
   @override
@@ -92,6 +116,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
   Widget build(BuildContext context) {
     final result = _result;
     final matched = result?.isVerified == true;
+    final captured = _capturedEmbedding;
     return Scaffold(
       appBar: AppBar(title: const Text('Module 5: Identity Verification')),
       body: Center(
@@ -142,6 +167,10 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
                   ),
                 ),
               ],
+              if (captured != null) ...[
+                const SizedBox(height: 16),
+                EmbeddingVectorGrid(values: captured),
+              ],
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Text(
@@ -155,21 +184,27 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
                 const CircularProgressIndicator()
               else if (matched)
                 FilledButton.icon(
-                  onPressed: () => Navigator.of(context).pushAndRemoveUntil(
-                    MaterialPageRoute(
-                      builder: (_) => QrScannerScreen(verification: result),
-                    ),
-                    (route) => false,
-                  ),
+                  onPressed: () => _openScanner(result!),
                   icon: const Icon(Icons.qr_code_scanner),
                   label: const Text('Unlock QR Scanner'),
                 )
               else
                 OutlinedButton.icon(
-                  onPressed: _verify,
+                  onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.refresh),
-                  label: const Text('Try Again'),
+                  label: const Text('Retry liveness'),
                 ),
+              if (matched) ...[
+                const SizedBox(height: 12),
+                OutlinedButton.icon(
+                  onPressed: () {
+                    print('[FACE_VERIFY] Cloud identity re-check bypassed.');
+                    _openScanner(result!);
+                  },
+                  icon: const Icon(Icons.cloud_off),
+                  label: const Text('Skip server identity re-check'),
+                ),
+              ],
             ],
           ),
         ),
