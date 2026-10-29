@@ -30,8 +30,10 @@ disagree, this file wins. `README.md` is empty.
 
 - `lib/main.dart` → Module 1 local login. The offline session leads through Module 4
   liveness, Module 5 local embedding verification, and Module 3 QR scanning.
-- Offline login/session and face enrollment are mock, in-memory data. The shown token
-  is not an authentication JWT, and device display data is not persistent binding.
+- Online Auth uses Supabase email/password. Students can claim only an admin-loaded
+  roster row matching their college email, name, and roll number. Initial face
+  enrollment is saved to Supabase; a later roll/name/face change is submitted for
+  administrator approval. Offline demo remains in-memory.
 - Theme: dark slate (`0xFF0F172A` background, `0xFF1E293B` surfaces) with sky-blue
   `0xFF38BDF8` and green `0xFF22C55E` accents. Match it in new UI.
 - Feature layout is mandated: `lib/features/module_{1_auth,2_qr_gen,3_qr_scan,
@@ -147,3 +149,9 @@ The student must pass identity checks **before** the QR scanner is usable:
   the face-verification gate). `git show HEAD:.gemini/rules/attendance_rules.md`
   still says "hard limit of 2.0 seconds" and has no verification gate. Check
   `git diff` before trusting the committed version.
+- `supabase/migrations/202610300001_identity_registration_and_approval.sql` defines
+  roster claims, face enrollment, RLS, admin approval and identity audit. Initial
+  admins and roster rows must be seeded in Supabase; see `SUPABASE_SETUP.md`.
+- Course rosters, lecturer-issued QR sessions, server attendance submission and
+  lecturer realtime attendance display are not connected yet. Do not describe a
+  locally accepted QR scan as a persisted attendance record.
