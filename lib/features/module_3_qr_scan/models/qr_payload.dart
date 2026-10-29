@@ -5,6 +5,7 @@ enum TokenValidationStatus {
   valid,
   expired,
   replayAttack,
+  staleToken,
   invalidFormat,
   clockDesync,
 }
@@ -38,6 +39,7 @@ class QrPayload {
   static QrPayload parse(
     String raw, {
     required Set<int> usedNonces,
+    int? latestAcceptedTs,
     int? mockCurrentTimeMs,
   }) {
     final now = mockCurrentTimeMs ?? DateTime.now().millisecondsSinceEpoch;
@@ -61,7 +63,10 @@ class QrPayload {
       final nonceVal = decoded['nonce'];
       final tsVal = decoded['ts'];
 
-      if (session == null || session.isEmpty || nonceVal == null || tsVal == null) {
+      if (session == null ||
+          session.isEmpty ||
+          nonceVal == null ||
+          tsVal == null) {
         return QrPayload(
           session: session ?? 'UNKNOWN',
           nonce: nonceVal is int ? nonceVal : 0,
@@ -82,6 +87,19 @@ class QrPayload {
           : int.tryParse(tsVal.toString()) ?? 0;
       final int ageMs = now - ts;
 
+      if (nonce <= 0 || ts <= 0) {
+        return QrPayload(
+          session: session,
+          nonce: nonce,
+          timestamp: ts,
+          rawJson: raw,
+          scannedAt: now,
+          ageMs: -1,
+          status: TokenValidationStatus.invalidFormat,
+          statusMessage: 'Invalid Token | nonce and ts must be positive',
+        );
+      }
+
       // Anti-replay attack check
       if (usedNonces.contains(nonce)) {
         return QrPayload(
@@ -93,6 +111,23 @@ class QrPayload {
           ageMs: ageMs,
           status: TokenValidationStatus.replayAttack,
           statusMessage: 'Replay Attack Detected | Nonce $nonce already used',
+        );
+      }
+
+      // Only the newest code for the session may be accepted. The projector
+      // emits random nonces, so the generation timestamp is the client-side
+      // ordering signal: any code at or below the last accepted ts is stale.
+      if (latestAcceptedTs != null && ts <= latestAcceptedTs) {
+        return QrPayload(
+          session: session,
+          nonce: nonce,
+          timestamp: ts,
+          rawJson: raw,
+          scannedAt: now,
+          ageMs: ageMs,
+          status: TokenValidationStatus.staleToken,
+          statusMessage:
+              'Stale Token | Older than the last accepted code (${ageMs}ms old)',
         );
       }
 
@@ -111,8 +146,11 @@ class QrPayload {
         );
       }
 
-      // Hard limit of 2.0 seconds (2000 ms) as specified in rule 2.0
-      if (ageMs > 2000) {
+      // Student submission deadline is 3.0 seconds (3000 ms) from generation.
+      // The projector refreshes every 2.0s; the extra second absorbs camera and
+      // network latency. Superseded codes are rejected above, so this window
+      // cannot be used to replay an older code.
+      if (ageMs > 3000) {
         final ageSec = (ageMs / 1000.0).toStringAsFixed(1);
         return QrPayload(
           session: session,
@@ -126,7 +164,7 @@ class QrPayload {
         );
       }
 
-      // Valid token (0 <= ageMs <= 2000)
+      // Valid token (0 <= ageMs <= 3000)
       final ageDisplay = ageMs >= 1000
           ? '${(ageMs / 1000.0).toStringAsFixed(1)}s'
           : '${ageMs < 0 ? 0 : ageMs}ms';

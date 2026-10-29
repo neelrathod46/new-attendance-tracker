@@ -1,5 +1,7 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
+
 import '../models/qr_payload.dart';
 
 /// Interactive on-screen Validation Card with live visual feedback,
@@ -7,13 +9,11 @@ import '../models/qr_payload.dart';
 class TokenValidationCard extends StatefulWidget {
   final QrPayload payload;
   final VoidCallback onDismiss;
-  final VoidCallback onProceedToLiveness;
 
   const TokenValidationCard({
     super.key,
     required this.payload,
     required this.onDismiss,
-    required this.onProceedToLiveness,
   });
 
   @override
@@ -70,10 +70,7 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
       decoration: BoxDecoration(
         color: bgColor,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: primaryColor.withOpacity(0.6),
-          width: 2,
-        ),
+        border: Border.all(color: primaryColor.withOpacity(0.6), width: 2),
         boxShadow: [
           BoxShadow(
             color: primaryColor.withOpacity(0.2),
@@ -92,7 +89,9 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               color: primaryColor,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+              borderRadius: const BorderRadius.vertical(
+                top: Radius.circular(14),
+              ),
             ),
             child: Row(
               children: [
@@ -113,7 +112,11 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                   ),
                 ),
                 IconButton(
-                  icon: const Icon(Icons.close, color: Colors.white70, size: 20),
+                  icon: const Icon(
+                    Icons.close,
+                    color: Colors.white70,
+                    size: 20,
+                  ),
                   onPressed: widget.onDismiss,
                   padding: EdgeInsets.zero,
                   constraints: const BoxConstraints(),
@@ -156,9 +159,9 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                         style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       Text(
-                        '${(_currentElapsedMs / 1000.0).toStringAsFixed(2)}s  /  2.00s max',
+                        '${(_currentElapsedMs / 1000.0).toStringAsFixed(2)}s  /  3.00s max',
                         style: TextStyle(
-                          color: _currentElapsedMs <= 2000
+                          color: _currentElapsedMs <= 3000
                               ? const Color(0xFF22C55E)
                               : const Color(0xFFEF4444),
                           fontFamily: 'monospace',
@@ -172,10 +175,10 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: (_currentElapsedMs / 2000.0).clamp(0.0, 1.0),
+                      value: (_currentElapsedMs / 3000.0).clamp(0.0, 1.0),
                       backgroundColor: const Color(0xFF334155),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _currentElapsedMs <= 2000
+                        _currentElapsedMs <= 3000
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                       ),
@@ -192,21 +195,26 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                   value: payload.timestamp == 0
                       ? 'Invalid'
                       : DateTime.fromMillisecondsSinceEpoch(payload.timestamp)
-                          .toIso8601String()
-                          .split('T')
-                          .last
-                          .replaceAll('Z', ''),
+                            .toIso8601String()
+                            .split('T')
+                            .last
+                            .replaceAll('Z', ''),
                 ),
                 _buildDetailRow(
                   icon: Icons.security_rounded,
                   label: 'Replay Protection',
-                  value: payload.status == TokenValidationStatus.replayAttack
-                      ? 'DUPLICATE NONCE REJECTED'
-                      : 'Nonce Active',
+                  value: switch (payload.status) {
+                    TokenValidationStatus.replayAttack =>
+                      'DUPLICATE NONCE REJECTED',
+                    TokenValidationStatus.staleToken =>
+                      'SUPERSEDED CODE REJECTED',
+                    _ => 'Nonce Active',
+                  },
                   valueColor:
-                      payload.status == TokenValidationStatus.replayAttack
-                          ? const Color(0xFFEF4444)
-                          : const Color(0xFF22C55E),
+                      payload.status == TokenValidationStatus.replayAttack ||
+                          payload.status == TokenValidationStatus.staleToken
+                      ? const Color(0xFFEF4444)
+                      : const Color(0xFF22C55E),
                 ),
                 const SizedBox(height: 8),
 
@@ -276,24 +284,6 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                         child: const Text('Scan Again'),
                       ),
                     ),
-                    if (isValid) ...[
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: ElevatedButton.icon(
-                          onPressed: widget.onProceedToLiveness,
-                          icon: const Icon(Icons.arrow_forward_rounded, size: 18),
-                          label: const Text('Proceed to Face Liveness'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF22C55E),
-                            foregroundColor: Colors.white,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            padding: const EdgeInsets.symmetric(vertical: 12),
-                          ),
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ],

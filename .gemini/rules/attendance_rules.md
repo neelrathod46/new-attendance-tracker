@@ -13,7 +13,14 @@
 ## 2. Anti-Proxy & Security Architecture
 * **Dynamic Time-Bound QR Codes:**
   * Payload: Minified JSON string `{"session": "CS101", "nonce": 849120, "ts": 1793212800142}`.
-  * Expiry: Hard limit of 2.0 seconds. Replay attacks blocked via server-side unique `nonce` checks.
+  * The projector refreshes the QR code every 2.0 seconds (anti-screenshot / anti-remote-sharing measure).
+  * The 2.0-second window is a **projector-side refresh cadence**, student submission deadline is 3 seconds.
+  * Replay attacks blocked via server-side unique `nonce` checks per student per session.
+* **Verification Order (critical):**
+  * **Face liveness (Module 4) → face verification (Module 5) → QR scanning (Module 3).**
+  * The student completes liveness with no time pressure. The live face is then matched against the enrolled 128-d embedding (cosine distance `< 0.40`); the QR scanner stays locked until it matches.
+  * Only after a MATCH does the student scan whichever QR code is currently on the projector, so the scanned token is always fresh at the moment of scanning.
+  * Liveness alone is not enough: the face must also match the enrolled student. The backend re-verifies the identity match and token; a client-side "verified" flag is never trusted.
 * **Client-Side Face Liveness (Google ML Kit):**
   * Process camera frames using `google_mlkit_face_detection`.
   * Track active eye-blink probabilities (`leftEyeOpenProbability`, `rightEyeOpenProbability`) and smile probabilities to prevent static photo spoofs.
@@ -38,14 +45,13 @@ lib/
 │   ├── module_4_liveness/   # Standalone ML Kit Liveness Feed & Meter UI
 │   ├── module_5_embedding/  # Standalone 128d TFLite Vector Extractor UI
 │   └── module_6_sync/       # End-to-End Live Sync Dashboard
-
 ```
 
 ### Module Specifications
 
 #### Module 1: Standalone Auth & User Context
 
-* **Deliverable:** Flutter UI screen with role selector (Student / Lecturer), live form validation styling, and a post-login Interactive Session Card displaying `uid`, role badge, and cryptographic session JWT token.
+* **Deliverable:** Flutter UI screen for student login, live form validation styling, and a post-login Interactive Session Card displaying `uid`, role badge, and cryptographic session JWT token.
 * **Verification:** Run `flutter run` and interact with forms directly on-screen.
 
 #### Module 2: Standalone Dynamic QR Generator
@@ -80,8 +86,7 @@ lib/
 
 #### Module 6: End-to-End Live Sync
 
-* **Deliverable:** Connects Modules 1–5 to Firebase/Supabase real-time listeners. Student scanning triggers an instant popup on the lecturer's projector screen roster.
-
+* Deliverable: Connects the Flutter app (Modules 1, 3, 4, 5) and the lecturer web page (Module 2) to Firebase/Supabase. The student's attendance write triggers a real-time listener on the lecturer's web page, which prepends the student to the live roster.
 ---
 
 ## 4. Coding Standards for the Agent
