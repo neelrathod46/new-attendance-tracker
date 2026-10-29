@@ -5,7 +5,8 @@ import 'dart:io';
 class LocalAttendanceApi {
   static const defaultServerUrl = String.fromEnvironment(
     'ATTENDANCE_SERVER_URL',
-    defaultValue: 'http://10.0.2.2:8765',
+    // Do not prefill the emulator-only address in APKs used on physical phones.
+    defaultValue: '',
   );
   static String _serverUrl = defaultServerUrl;
 
@@ -20,6 +21,13 @@ class LocalAttendanceApi {
         (uri.scheme != 'http' && uri.scheme != 'https')) {
       throw const FormatException(
         'Enter the lecturer server address like http://192.168.1.20:8765.',
+      );
+    }
+    if (uri.host == 'localhost' ||
+        uri.host == '127.0.0.1' ||
+        uri.host == '10.0.2.2') {
+      throw const FormatException(
+        'Use the lecturer laptop Wi-Fi address, not localhost or the emulator address. Ask the lecturer for the LAN URL.',
       );
     }
     _serverUrl = cleaned;

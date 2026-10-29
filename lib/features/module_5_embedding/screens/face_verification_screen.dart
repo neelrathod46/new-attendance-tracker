@@ -121,7 +121,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
     final matched = result?.isVerified == true;
     final captured = _capturedEmbedding;
     return Scaffold(
-      appBar: AppBar(title: const Text('Module 5: Identity Verification')),
+      appBar: AppBar(title: const Text('Confirm your identity')),
       body: Center(
         child: SingleChildScrollView(
           padding: const EdgeInsets.all(28),
@@ -144,36 +144,64 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
               const SizedBox(height: 20),
               Text(
                 _checking
-                    ? 'Comparing face embedding…'
+                    ? 'Matching your face…'
                     : matched
-                    ? 'Identity confirmed'
-                    : 'Identity not verified',
+                    ? 'You’re verified'
+                    : 'We couldn’t confirm your face',
                 style: const TextStyle(
                   fontWeight: FontWeight.bold,
                   fontSize: 22,
                 ),
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 10),
               Text(
-                'Liveness signals: eyes open ${widget.liveness.openEyesProbability.toStringAsFixed(2)}, blink ${widget.liveness.blinkEyesProbability.toStringAsFixed(2)}, smile ${widget.liveness.smileProbability.toStringAsFixed(2)}.',
+                _checking
+                    ? 'Comparing this live capture with your registered face.'
+                    : matched
+                    ? 'Your face matches the enrollment on your student profile.'
+                    : 'Try again facing the camera in clear, even lighting.',
                 textAlign: TextAlign.center,
+                style: const TextStyle(color: Color(0xFF94A3B8), height: 1.45),
               ),
-              if (result != null) ...[
-                const SizedBox(height: 12),
-                Text(
-                  'Embedding distance: ${result.embeddingDistance.toStringAsFixed(4)} / ${FaceVerificationResult.matchThreshold.toStringAsFixed(2)} maximum',
-                  style: TextStyle(
-                    color: matched
-                        ? const Color(0xFF22C55E)
-                        : const Color(0xFFEF4444),
-                    fontFamily: 'monospace',
+              if (result != null || captured != null)
+                Padding(
+                  padding: const EdgeInsets.only(top: 14),
+                  child: ExpansionTile(
+                    tilePadding: EdgeInsets.zero,
+                    title: const Text(
+                      'Technical verification details',
+                      style: TextStyle(fontSize: 12),
+                    ),
+                    children: [
+                      Text(
+                        'Liveness signals · eyes ${widget.liveness.openEyesProbability.toStringAsFixed(2)} · blink ${widget.liveness.blinkEyesProbability.toStringAsFixed(2)} · smile ${widget.liveness.smileProbability.toStringAsFixed(2)}',
+                        textAlign: TextAlign.center,
+                        style: const TextStyle(
+                          color: Color(0xFF94A3B8),
+                          fontSize: 11,
+                        ),
+                      ),
+                      if (result != null) ...[
+                        const SizedBox(height: 8),
+                        Text(
+                          'Embedding distance: ${result.embeddingDistance.toStringAsFixed(4)} / ${FaceVerificationResult.matchThreshold.toStringAsFixed(2)}',
+                          style: TextStyle(
+                            color: matched
+                                ? const Color(0xFF22C55E)
+                                : const Color(0xFFEF4444),
+                            fontFamily: 'monospace',
+                            fontSize: 11,
+                          ),
+                        ),
+                      ],
+                      if (captured != null)
+                        Padding(
+                          padding: const EdgeInsets.only(top: 8),
+                          child: EmbeddingVectorGrid(values: captured),
+                        ),
+                    ],
                   ),
                 ),
-              ],
-              if (captured != null) ...[
-                const SizedBox(height: 16),
-                EmbeddingVectorGrid(values: captured),
-              ],
               if (_error != null) ...[
                 const SizedBox(height: 16),
                 Text(
@@ -189,7 +217,7 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
                 FilledButton.icon(
                   onPressed: () => _openScanner(result!),
                   icon: const Icon(Icons.qr_code_scanner),
-                  label: const Text('Unlock QR Scanner'),
+                  label: const Text('Continue to class code'),
                 )
               else
                 OutlinedButton.icon(
@@ -197,17 +225,6 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
                   icon: const Icon(Icons.refresh),
                   label: const Text('Retry liveness'),
                 ),
-              if (matched) ...[
-                const SizedBox(height: 12),
-                OutlinedButton.icon(
-                  onPressed: () {
-                    print('[FACE_VERIFY] Cloud identity re-check bypassed.');
-                    _openScanner(result!);
-                  },
-                  icon: const Icon(Icons.cloud_off),
-                  label: const Text('Skip server identity re-check'),
-                ),
-              ],
             ],
           ),
         ),

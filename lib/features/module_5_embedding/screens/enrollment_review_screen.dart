@@ -143,7 +143,7 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
   Widget build(BuildContext context) {
     final embedding = _embedding;
     return Scaffold(
-      appBar: AppBar(title: const Text('Module 5: Face Enrollment')),
+      appBar: AppBar(title: const Text('Review face enrollment')),
       body: ListView(
         padding: const EdgeInsets.all(24),
         children: [
@@ -156,10 +156,35 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
             style: TextStyle(color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 20),
-          if (_working) const Center(child: CircularProgressIndicator()),
-          if (_error != null)
-            Text(_error!, style: const TextStyle(color: Color(0xFFEF4444))),
-          if (embedding != null) EmbeddingVectorGrid(values: embedding),
+          if (_working) ...[
+            const SizedBox(height: 18),
+            const LinearProgressIndicator(),
+            const SizedBox(height: 8),
+            const Text(
+              'Preparing your face enrollment…',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: Color(0xFF94A3B8), fontSize: 12),
+            ),
+          ],
+          if (_error != null) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                color: const Color(0xFFEF4444).withValues(alpha: 0.1),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Text(
+                _error!,
+                style: const TextStyle(color: Color(0xFFFDA4AF)),
+              ),
+            ),
+          ],
+          if (embedding != null)
+            ExpansionTile(
+              title: const Text('Technical embedding details'),
+              children: [EmbeddingVectorGrid(values: embedding)],
+            ),
           const SizedBox(height: 24),
           FilledButton.icon(
             onPressed: embedding == null || _working ? null : _save,

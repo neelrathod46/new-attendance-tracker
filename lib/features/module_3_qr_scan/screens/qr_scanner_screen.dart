@@ -288,7 +288,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             const Text(
-              'Module 3: QR Scanner',
+              'Scan your class code',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -296,7 +296,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
             Text(
-              'Anti-Proxy 3.0s Submission Window',
+              'Face verified · code expires in 3 seconds',
               style: TextStyle(
                 fontSize: 11,
                 color: const Color(0xFF38BDF8).withOpacity(0.9),
@@ -354,7 +354,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ),
                       const SizedBox(height: 16),
                       Text(
-                        'Camera Error: ${error.errorCode.name}',
+                        'Camera unavailable',
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.bold,
@@ -363,7 +363,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       ),
                       const SizedBox(height: 8),
                       Text(
-                        'Please verify camera permissions or test using the simulation buttons.',
+                        'Allow camera access for Campus Check-in in your phone settings, then try again.',
                         textAlign: TextAlign.center,
                         style: TextStyle(
                           color: Colors.white.withOpacity(0.7),
@@ -375,7 +375,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                         ElevatedButton.icon(
                           onPressed: _showSimulationDialog,
                           icon: const Icon(Icons.science_rounded),
-                          label: const Text('Open Test Simulator'),
+                          label: const Text('Open developer simulator'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: const Color(0xFF0369A1),
                             foregroundColor: Colors.white,
@@ -418,7 +418,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                     ),
                     SizedBox(width: 8),
                     Text(
-                      'Point camera at dynamic QR code on projector',
+                      'Scan the live code displayed by your lecturer',
                       style: TextStyle(color: Colors.white, fontSize: 12),
                     ),
                   ],
@@ -460,7 +460,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(
-              'Module 3: QR Scanner',
+              'Class check-in',
               style: TextStyle(
                 fontSize: 16,
                 fontWeight: FontWeight.bold,
@@ -468,7 +468,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
             Text(
-              'Locked until face verification',
+              'Face verification required',
               style: TextStyle(fontSize: 11, color: Color(0xFF38BDF8)),
             ),
           ],

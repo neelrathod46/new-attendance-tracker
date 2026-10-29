@@ -113,7 +113,7 @@ class QrPayload {
           scannedAt: now,
           ageMs: ageMs,
           status: TokenValidationStatus.replayAttack,
-          statusMessage: 'Replay Attack Detected | Nonce $nonce already used',
+          statusMessage: 'Code already used | Scan the current class code',
         );
       }
 
@@ -129,8 +129,7 @@ class QrPayload {
           scannedAt: now,
           ageMs: ageMs,
           status: TokenValidationStatus.staleToken,
-          statusMessage:
-              'Stale Token | Older than the last accepted code (${ageMs}ms old)',
+          statusMessage: 'Code replaced | Scan the latest class code',
         );
       }
 
@@ -145,7 +144,7 @@ class QrPayload {
           ageMs: ageMs,
           status: TokenValidationStatus.clockDesync,
           statusMessage:
-              'Clock Desync | QR code timestamp is in the future (${ageMs.abs()}ms ahead)',
+              'Phone time differs | Check your device clock and scan again',
         );
       }
 
@@ -163,7 +162,7 @@ class QrPayload {
           scannedAt: now,
           ageMs: ageMs,
           status: TokenValidationStatus.expired,
-          statusMessage: 'Expired Token | Generated ${ageSec}s ago (Rejected)',
+          statusMessage: 'Code expired | Generated ${ageSec}s ago; scan again',
         );
       }
 
@@ -180,7 +179,7 @@ class QrPayload {
         scannedAt: now,
         ageMs: ageMs < 0 ? 0 : ageMs,
         status: TokenValidationStatus.valid,
-        statusMessage: 'Valid Token | Generated $ageDisplay ago',
+        statusMessage: 'Code ready | Generated $ageDisplay ago',
       );
     } catch (e) {
       return QrPayload(

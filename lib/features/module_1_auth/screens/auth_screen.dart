@@ -113,109 +113,231 @@ class _AuthScreenState extends State<AuthScreen> {
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(title: const Text('Student Attendance')),
-    body: ListView(
-      padding: const EdgeInsets.all(24),
-      children: [
-        const Text(
-          'Connect to your class',
-          style: TextStyle(fontSize: 23, fontWeight: FontWeight.bold),
-        ),
-        const SizedBox(height: 8),
-        const Text(
-          'Use the same institute Wi-Fi as your lecturer. Your name and roll number must match the imported college roster.',
-          style: TextStyle(color: Color(0xFF94A3B8), height: 1.4),
-        ),
-        const SizedBox(height: 20),
-        SegmentedButton<bool>(
-          segments: const [
-            ButtonSegment(value: true, label: Text('First registration')),
-            ButtonSegment(value: false, label: Text('Sign in')),
-          ],
-          selected: {_registering},
-          onSelectionChanged: _busy
-              ? null
-              : (v) => setState(() {
-                  _registering = v.single;
-                  _notice = null;
-                }),
-        ),
-        const SizedBox(height: 18),
-        TextField(
-          controller: _serverUrl,
-          enabled: !_busy,
-          keyboardType: TextInputType.url,
-          autocorrect: false,
-          decoration: const InputDecoration(
-            labelText: 'Lecturer laptop server address',
-            hintText: 'http://192.168.1.20:8765',
-            helperText: 'Ask the lecturer for this address. Both devices must use the same Wi-Fi.',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _name,
-          enabled: !_busy,
-          textCapitalization: TextCapitalization.words,
-          decoration: const InputDecoration(
-            labelText: 'Full name from college roster',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 14),
-        TextField(
-          controller: _roll,
-          enabled: !_busy,
-          textCapitalization: TextCapitalization.characters,
-          decoration: const InputDecoration(
-            labelText: 'Roll number',
-            hintText: '25BCS001',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        if (_notice != null) ...[
-          const SizedBox(height: 14),
-          Text(
-            _notice!,
-            style: TextStyle(
-              color: _error ? const Color(0xFFEF4444) : const Color(0xFF38BDF8),
+    appBar: AppBar(
+      title: const Row(
+        children: [
+          Icon(Icons.qr_code_2_rounded, color: Color(0xFF38BDF8)),
+          SizedBox(width: 10),
+          Text('Campus Check-in'),
+        ],
+      ),
+    ),
+    body: SafeArea(
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 560),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(20),
+                    gradient: const LinearGradient(
+                      colors: [Color(0xFF12334A), Color(0xFF17243A)],
+                      begin: Alignment.topLeft,
+                      end: Alignment.bottomRight,
+                    ),
+                    border: Border.all(color: const Color(0xFF28425A)),
+                  ),
+                  child: const Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'STUDENT ATTENDANCE',
+                        style: TextStyle(
+                          color: Color(0xFF7DD3FC),
+                          fontSize: 10,
+                          letterSpacing: 1.4,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 9),
+                      Text(
+                        'Ready for class?',
+                        style: TextStyle(
+                          fontSize: 25,
+                          letterSpacing: -0.5,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                      SizedBox(height: 7),
+                      Text(
+                        'Connect to your lecturer, verify your identity, then scan the live class code.',
+                        style: TextStyle(
+                          color: Color(0xFFB8C7D9),
+                          height: 1.45,
+                          fontSize: 13,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(18),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        const Text(
+                          'Connect to your class',
+                          style: TextStyle(
+                            fontSize: 17,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                        const SizedBox(height: 5),
+                        const Text(
+                          'Use the same institute Wi-Fi as your lecturer.',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 12,
+                          ),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _serverUrl,
+                          enabled: !_busy,
+                          keyboardType: TextInputType.url,
+                          autocorrect: false,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.wifi_rounded),
+                            labelText: 'Lecturer server address',
+                            hintText: 'http://192.168.1.20:8765',
+                            helperText:
+                                'Use the Wi-Fi URL shown in the lecturer terminal. Do not use localhost or 10.0.2.2.',
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        SegmentedButton<bool>(
+                          segments: const [
+                            ButtonSegment(
+                              value: true,
+                              label: Text('First time'),
+                              icon: Icon(Icons.person_add_alt_1),
+                            ),
+                            ButtonSegment(
+                              value: false,
+                              label: Text('Returning'),
+                              icon: Icon(Icons.login_rounded),
+                            ),
+                          ],
+                          selected: {_registering},
+                          onSelectionChanged: _busy
+                              ? null
+                              : (value) => setState(() {
+                                  _registering = value.single;
+                                  _notice = null;
+                                }),
+                        ),
+                        const SizedBox(height: 16),
+                        TextField(
+                          controller: _name,
+                          enabled: !_busy,
+                          textCapitalization: TextCapitalization.words,
+                          textInputAction: TextInputAction.next,
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.person_outline_rounded),
+                            labelText: 'Full name from college roster',
+                          ),
+                        ),
+                        const SizedBox(height: 12),
+                        TextField(
+                          controller: _roll,
+                          enabled: !_busy,
+                          textCapitalization: TextCapitalization.characters,
+                          textInputAction: TextInputAction.done,
+                          onSubmitted: (_) => _busy ? null : _connect(),
+                          decoration: const InputDecoration(
+                            prefixIcon: Icon(Icons.badge_outlined),
+                            labelText: 'College roll number',
+                            hintText: '25BCS001',
+                          ),
+                        ),
+                        if (_notice != null) ...[
+                          const SizedBox(height: 14),
+                          Container(
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color:
+                                  (_error
+                                          ? const Color(0xFFEF4444)
+                                          : const Color(0xFF38BDF8))
+                                      .withValues(alpha: 0.1),
+                              borderRadius: BorderRadius.circular(10),
+                            ),
+                            child: Row(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Icon(
+                                  _error
+                                      ? Icons.error_outline_rounded
+                                      : Icons.info_outline_rounded,
+                                  size: 18,
+                                  color: _error
+                                      ? const Color(0xFFFB7185)
+                                      : const Color(0xFF38BDF8),
+                                ),
+                                const SizedBox(width: 9),
+                                Expanded(
+                                  child: Text(
+                                    _notice!,
+                                    style: TextStyle(
+                                      color: _error
+                                          ? const Color(0xFFFDA4AF)
+                                          : const Color(0xFF7DD3FC),
+                                      fontSize: 12,
+                                      height: 1.4,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                        const SizedBox(height: 18),
+                        FilledButton.icon(
+                          onPressed: _busy ? null : _connect,
+                          icon: _busy
+                              ? const SizedBox.square(
+                                  dimension: 18,
+                                  child: CircularProgressIndicator(
+                                    strokeWidth: 2,
+                                  ),
+                                )
+                              : const Icon(Icons.arrow_forward_rounded),
+                          label: Text(
+                            _busy
+                                ? 'Connecting…'
+                                : _registering
+                                ? 'Register with college roster'
+                                : 'Continue to your account',
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 16),
+                OutlinedButton.icon(
+                  onPressed: _busy ? null : _offlineDemo,
+                  icon: const Icon(Icons.science_outlined),
+                  label: const Text('Try local camera demo'),
+                ),
+                const SizedBox(height: 7),
+                const Text(
+                  'Demo mode exercises the face and QR flow without saving attendance.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF718096), fontSize: 11),
+                ),
+              ],
             ),
           ),
-        ],
-        const SizedBox(height: 20),
-        FilledButton.icon(
-          onPressed: _busy ? null : _connect,
-          icon: _busy
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : Icon(_registering ? Icons.person_add_alt : Icons.login),
-          label: Text(
-            _registering
-                ? 'Register / claim roster identity'
-                : 'Sign in to local server',
-          ),
         ),
-        const SizedBox(height: 28),
-        const Divider(),
-        const Text(
-          'Local camera demo',
-          style: TextStyle(fontWeight: FontWeight.w600),
-        ),
-        const SizedBox(height: 6),
-        const Text(
-          'The demo runs face enrollment and scanning on this phone. It does not create a college attendance record.',
-          style: TextStyle(color: Color(0xFF94A3B8)),
-        ),
-        const SizedBox(height: 10),
-        OutlinedButton.icon(
-          onPressed: _busy ? null : _offlineDemo,
-          icon: const Icon(Icons.phonelink_off),
-          label: const Text('Continue offline demo'),
-        ),
-      ],
+      ),
     ),
   );
 }

@@ -130,7 +130,7 @@ class _SessionScreenState extends State<SessionScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text(
-            'Request sent. Your saved identity stays unchanged until an admin approves it.',
+            'Request sent. Your saved identity stays unchanged until the lecturer approves it.',
           ),
         ),
       );
@@ -146,150 +146,249 @@ class _SessionScreenState extends State<SessionScreen> {
     final enrolled = session.isEnrolled;
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Module 1: Session'),
+        title: const Row(
+          children: [
+            Icon(Icons.qr_code_2_rounded, color: Color(0xFF38BDF8)),
+            SizedBox(width: 10),
+            Text('Campus Check-in'),
+          ],
+        ),
         actions: [
-          TextButton(onPressed: _signOut, child: const Text('Sign out')),
+          IconButton(
+            onPressed: _signOut,
+            tooltip: 'Sign out',
+            icon: const Icon(Icons.logout_rounded),
+          ),
         ],
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(24),
-        children: [
-          Container(
-            padding: const EdgeInsets.all(20),
-            decoration: BoxDecoration(
-              color: const Color(0xFF1E293B),
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(color: const Color(0xFF334155)),
-            ),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      body: SafeArea(
+        child: Center(
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 620),
+            child: ListView(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
               children: [
-                Row(
-                  children: [
-                    const Icon(Icons.badge_outlined, color: Color(0xFF38BDF8)),
-                    const SizedBox(width: 8),
-                    const Text(
-                      'Interactive session card',
-                      style: TextStyle(
-                        fontWeight: FontWeight.bold,
-                        fontSize: 16,
-                      ),
+                const Text(
+                  'YOUR ACCOUNT',
+                  style: TextStyle(
+                    color: Color(0xFF38BDF8),
+                    fontSize: 10,
+                    letterSpacing: 1.5,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 7),
+                Text(
+                  'Hello, ${session.displayName.split(' ').first}',
+                  style: const TextStyle(
+                    fontSize: 27,
+                    letterSpacing: -0.6,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                const Text(
+                  'Your identity and face enrollment are managed for this college.',
+                  style: TextStyle(color: Color(0xFF94A3B8), height: 1.4),
+                ),
+                const SizedBox(height: 20),
+                Card(
+                  child: Padding(
+                    padding: const EdgeInsets.all(19),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            CircleAvatar(
+                              radius: 24,
+                              backgroundColor: const Color(0xFF12334A),
+                              child: Text(
+                                session.displayName.trim().isEmpty
+                                    ? '?'
+                                    : session.displayName
+                                          .trim()[0]
+                                          .toUpperCase(),
+                                style: const TextStyle(
+                                  color: Color(0xFF7DD3FC),
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 18,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 13),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    session.displayName,
+                                    style: const TextStyle(
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    session.studentId,
+                                    style: const TextStyle(
+                                      color: Color(0xFF94A3B8),
+                                      fontSize: 12,
+                                      letterSpacing: .5,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Icon(
+                              enrolled
+                                  ? Icons.verified_rounded
+                                  : Icons.info_outline_rounded,
+                              color: enrolled
+                                  ? const Color(0xFF22C55E)
+                                  : const Color(0xFFFBBF24),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 17),
+                        const Divider(height: 1),
+                        const SizedBox(height: 14),
+                        Row(
+                          children: [
+                            Icon(
+                              session.offline
+                                  ? Icons.phone_android
+                                  : Icons.wifi_rounded,
+                              color: const Color(0xFF38BDF8),
+                              size: 17,
+                            ),
+                            const SizedBox(width: 9),
+                            Expanded(
+                              child: Text(
+                                session.offline
+                                    ? 'Offline demo profile'
+                                    : 'Connected to lecturer laptop',
+                                style: const TextStyle(fontSize: 12),
+                              ),
+                            ),
+                            Text(
+                              enrolled ? 'FACE READY' : 'FACE NEEDED',
+                              style: TextStyle(
+                                color: enrolled
+                                    ? const Color(0xFF4ADE80)
+                                    : const Color(0xFFFBBF24),
+                                fontSize: 9,
+                                letterSpacing: .7,
+                                fontWeight: FontWeight.bold,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
                     ),
-                    const Spacer(),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 4,
+                  ),
+                ),
+                const SizedBox(height: 22),
+                const Text(
+                  'ATTENDANCE',
+                  style: TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 10,
+                    letterSpacing: 1.4,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                FilledButton.icon(
+                  onPressed: enrolled
+                      ? () => _openLiveness(LivenessMode.verify)
+                      : null,
+                  icon: const Icon(Icons.qr_code_scanner_rounded),
+                  label: const Text('Verify and check in'),
+                  style: FilledButton.styleFrom(
+                    minimumSize: const Size.fromHeight(52),
+                    textStyle: const TextStyle(fontWeight: FontWeight.w700),
+                  ),
+                ),
+                const SizedBox(height: 9),
+                Text(
+                  enrolled
+                      ? 'Complete the live face check, then scan the current projector code.'
+                      : 'Enroll your face first. The scanner unlocks only after a successful face match.',
+                  style: const TextStyle(
+                    color: Color(0xFF94A3B8),
+                    fontSize: 12,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                OutlinedButton.icon(
+                  onPressed: () => _openLiveness(LivenessMode.enroll),
+                  icon: Icon(
+                    enrolled
+                        ? Icons.manage_accounts_outlined
+                        : Icons.face_retouching_natural,
+                  ),
+                  label: Text(
+                    enrolled
+                        ? session.offline
+                              ? 'Reset demo face enrollment'
+                              : 'Request face replacement'
+                        : 'Enroll my face',
+                  ),
+                  style: OutlinedButton.styleFrom(
+                    minimumSize: const Size.fromHeight(48),
+                    foregroundColor: const Color(0xFFBAE6FD),
+                    side: const BorderSide(color: Color(0xFF334155)),
+                  ),
+                ),
+                if (!session.offline && session.hasStudentIdentity) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _requestProfileChange,
+                    icon: const Icon(Icons.edit_note_rounded),
+                    label: const Text('Request a name or roll correction'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      foregroundColor: const Color(0xFFBAE6FD),
+                      side: const BorderSide(color: Color(0xFF334155)),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Icon(
+                        Icons.lock_outline_rounded,
+                        size: 16,
+                        color: Color(0xFF38BDF8),
                       ),
-                      decoration: BoxDecoration(
-                        color: const Color(0xFF22C55E).withValues(alpha: 0.15),
-                        borderRadius: BorderRadius.circular(20),
-                      ),
-                      child: Text(
-                        session.role.toUpperCase(),
-                        style: const TextStyle(
-                          color: Color(0xFF22C55E),
-                          fontWeight: FontWeight.bold,
-                          fontSize: 11,
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          'Your college name, roll number, and registered face are locked. Changes take effect only after lecturer approval.',
+                          style: TextStyle(
+                            color: Color(0xFF94A3B8),
+                            fontSize: 11,
+                            height: 1.45,
+                          ),
                         ),
                       ),
-                    ),
-                  ],
-                ),
-                const SizedBox(height: 16),
-                _row('Student', session.displayName),
-                _row('Roll number', session.studentId),
-                _row(
-                  'face',
-                  enrolled
-                      ? 'Enrolled · changes require lecturer approval'
-                      : 'Not enrolled',
-                ),
-                _row(
-                  'account',
-                  session.offline ? 'Offline demo' : 'Lecturer laptop LAN',
-                ),
+                    ],
+                  ),
+                ],
+                if (session.offline) ...[
+                  const SizedBox(height: 10),
+                  OutlinedButton.icon(
+                    onPressed: _explainOfflineDemo,
+                    icon: const Icon(Icons.science_outlined),
+                    label: const Text('About the local demo'),
+                  ),
+                ],
               ],
             ),
           ),
-          const SizedBox(height: 16),
-          if (!session.offline && session.hasStudentIdentity) ...[
-            OutlinedButton.icon(
-              onPressed: _requestProfileChange,
-              icon: const Icon(Icons.edit_note),
-              label: const Text('Request name or roll number correction'),
-            ),
-            const SizedBox(height: 10),
-          ] else if (session.offline) ...[
-            OutlinedButton.icon(
-              onPressed: _explainOfflineDemo,
-              icon: const Icon(Icons.cloud_off),
-              label: const Text('About offline demo'),
-            ),
-          ],
-          const SizedBox(height: 20),
-          if (session.hasStudentIdentity)
-            FilledButton.icon(
-              onPressed: () => _openLiveness(LivenessMode.enroll),
-              icon: const Icon(Icons.face_retouching_natural),
-              label: Text(
-                enrolled
-                    ? session.offline
-                          ? 'Re-enroll face'
-                          : 'Request face replacement'
-                    : 'Enroll face',
-              ),
-            ),
-          if (session.hasStudentIdentity) const SizedBox(height: 12),
-          if (session.hasStudentIdentity)
-            FilledButton.icon(
-              onPressed: enrolled
-                  ? () => _openLiveness(LivenessMode.verify)
-                  : null,
-              icon: const Icon(Icons.how_to_reg),
-              label: const Text('Check in (liveness → QR)'),
-            ),
-          if (session.hasStudentIdentity && !enrolled)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text(
-                'Enroll a face on this device before the QR scanner can unlock.',
-                style: TextStyle(color: Color(0xFF94A3B8)),
-              ),
-            ),
-          if (session.hasStudentIdentity && enrolled && !session.offline)
-            const Padding(
-              padding: EdgeInsets.only(top: 12),
-              child: Text(
-                'Your enrolled roll number and face cannot be edited here. Replacement requests require lecturer approval.',
-                style: TextStyle(color: Color(0xFF94A3B8)),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
-
-  Widget _row(String label, String value) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            label,
-            style: const TextStyle(
-              color: Color(0xFF94A3B8),
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            value,
-            style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
-          ),
-        ],
+        ),
       ),
     );
   }

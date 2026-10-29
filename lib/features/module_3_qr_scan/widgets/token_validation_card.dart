@@ -195,7 +195,7 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                 // Anti-Proxy Rule Status Details
                 _buildDetailRow(
                   icon: Icons.timer_outlined,
-                  label: 'Server Timestamp',
+                  label: 'Code created',
                   value: payload.timestamp == 0
                       ? 'Invalid'
                       : DateTime.fromMillisecondsSinceEpoch(payload.timestamp)
@@ -206,13 +206,12 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                 ),
                 _buildDetailRow(
                   icon: Icons.security_rounded,
-                  label: 'Replay Protection',
+                  label: 'Code status',
                   value: switch (payload.status) {
-                    TokenValidationStatus.replayAttack =>
-                      'DUPLICATE NONCE REJECTED',
+                    TokenValidationStatus.replayAttack => 'Already used',
                     TokenValidationStatus.staleToken =>
-                      'SUPERSEDED CODE REJECTED',
-                    _ => 'Nonce Active',
+                      'Replaced by a newer code',
+                    _ => 'Current',
                   },
                   valueColor:
                       payload.status == TokenValidationStatus.replayAttack ||

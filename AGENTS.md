@@ -15,7 +15,7 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 - `lib/main.dart` starts the student app at `lib/features/module_1_auth/screens/auth_screen.dart`.
 - `server.py` serves `index.html` and `/api/...` routes from one process. It stores roster claims, face vectors, approval requests, class sessions, and check-ins in SQLite.
 - `index.html` is the lecturer interface for importing a CSV roster, starting/ending a class, presenting the rotating QR, reviewing identity changes, and watching submitted attendance.
-- `lib/features/module_1_auth/services/local_attendance_api.dart` is the app's LAN API client. Configure its base URL with `ATTENDANCE_SERVER_URL`.
+- `lib/features/module_1_auth/services/local_attendance_api.dart` is the app's LAN API client. Students can set the lecturer address in the app; `ATTENDANCE_SERVER_URL` provides a build/run default.
 - Student identity must match the lecturer-imported roster. The first face embedding is locked; later identity or face changes require lecturer approval.
 - The offline demo remains in-memory and does not create attendance records.
 
@@ -36,7 +36,8 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 
 ## Known limits
 
-- Lecturer dashboard QR drawing uses a CDN script, so it currently needs laptop internet access even though API and data are local.
+- Lecturer dashboard serves its bundled QRCode.js renderer from `assets/qrcode.min.js`; `assets/QRCODEJS_LICENSE.txt` contains its MIT license. QR rendering itself works without internet.
 - Tokens use the lecturer laptop's clock. Student devices with substantially incorrect clocks may reject a QR before server submission.
 - SQLite is stored on the lecturer laptop and has no automatic remote backup or multi-lecturer synchronization.
 - Course rosters are imported and a lecturer starts a course session manually; the server does not yet enforce per-course enrollment membership.
+- The lecturer page has a **Demo** action that seeds `Mock Student 001`–`Mock Student 100` with roll numbers `25BCS001`–`25BCS100` for local trials.

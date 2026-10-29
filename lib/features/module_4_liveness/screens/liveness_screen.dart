@@ -319,9 +319,7 @@ class _LivenessScreenState extends State<LivenessScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final title = _isEnroll
-        ? 'Module 4: Enroll face'
-        : 'Module 4: Check-in liveness';
+    final title = _isEnroll ? 'Enroll your face' : 'Live identity check';
     return Scaffold(
       appBar: AppBar(title: Text(title)),
       body: _loading

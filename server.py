@@ -8,6 +8,7 @@ import hmac
 import json
 import os
 import secrets
+import socket
 import sqlite3
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -64,6 +65,12 @@ def initialize():
           FOREIGN KEY(session_id) REFERENCES class_sessions(id)
         );
         """)
+        # A running QR nonce is held in memory. If the process restarted, close
+        # stale sessions so the dashboard doesn't show a dead session as live.
+        db.execute(
+            "UPDATE class_sessions SET ended_at=? WHERE ended_at IS NULL",
+            (int(time.time() * 1000),),
+        )
 
 
 def embedding_vector(value):
@@ -91,9 +98,6 @@ class Handler(BaseHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(raw)))
         self.send_header("Cache-Control", "no-store")
-        self.send_header("Access-Control-Allow-Origin", "*")
-        self.send_header("Access-Control-Allow-Headers", "Authorization, Content-Type")
-        self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
         self.end_headers()
         self.wfile.write(raw)
 
@@ -116,8 +120,19 @@ class Handler(BaseHTTPRequestHandler):
 
     def do_GET(self):
         path = urlparse(self.path).path
+        if path in ("/api/admin/requests", "/api/admin/sessions") or (
+            path.startswith("/api/sessions/") and path.endswith("/attendance")
+        ):
+            try:
+                self.require_token("admin")
+            except PermissionError as error:
+                return self.send_json(401, {"error": str(error)})
         if path == "/api/health":
-            return self.send_json(200, {"ok": True, "serverTime": int(time.time() * 1000)})
+            return self.send_json(200, {
+                "ok": True,
+                "serverTime": int(time.time() * 1000),
+                "server": "AttendanceLAN/1.0",
+            })
         if path == "/api/admin/requests":
             self.require_token("admin")
             with connect() as db:
@@ -152,6 +167,16 @@ class Handler(BaseHTTPRequestHandler):
             self.send_response(200)
             self.send_header("Content-Type", "text/html; charset=utf-8")
             self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Cache-Control", "no-store")
+            self.end_headers()
+            self.wfile.write(raw)
+            return
+        if path == "/assets/qrcode.min.js":
+            raw = (ROOT / "assets" / "qrcode.min.js").read_bytes()
+            self.send_response(200)
+            self.send_header("Content-Type", "application/javascript; charset=utf-8")
+            self.send_header("Content-Length", str(len(raw)))
+            self.send_header("Cache-Control", "no-cache")
             self.end_headers()
             self.wfile.write(raw)
             return
@@ -334,6 +359,29 @@ def main():
     initialize()
     server = ThreadingHTTPServer((args.host, args.port), Handler)
     print(f"[SERVER] Lecturer page/API: http://localhost:{args.port}")
+    print("[SERVER] LAN addresses (use one of these in the student app):")
+    addresses = set()
+    try:
+        # A UDP connect selects the active outbound interface without sending
+        # traffic, which can reveal Wi-Fi even when hostname lookup is loopback.
+        probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        try:
+            probe.connect(("192.0.2.1", 80))
+            addresses.add(probe.getsockname()[0])
+        finally:
+            probe.close()
+        for result in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET):
+            address = result[4][0]
+            if not address.startswith("127."):
+                addresses.add(address)
+    except OSError:
+        pass
+    for address in sorted(addresses):
+        print(f"[SERVER]   http://{address}:{args.port}/api/health")
+    if not addresses:
+        print("[SERVER]   Could not detect an address; check Wi-Fi adapter settings.")
+    print(f"[SERVER] If phones cannot connect, allow inbound TCP port {args.port} "
+          "in the laptop firewall on its Private network profile.")
     print("[SERVER] Set ATTENDANCE_ADMIN_PASSWORD before sharing this server.")
     try:
         server.serve_forever()
