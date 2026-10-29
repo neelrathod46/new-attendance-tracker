@@ -6,7 +6,15 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
+
+      # ubuntu-latest defaults to a newer JDK; tflite_flutter mixes Java 11 with
+      # that Kotlin target unless the toolchain is pinned.
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
