@@ -3,9 +3,8 @@ import 'package:flutter/material.dart';
 import '../../module_4_liveness/models/liveness_mode.dart';
 import '../../module_4_liveness/screens/liveness_screen.dart';
 import '../models/student_session.dart';
-import '../services/supabase_client.dart';
+import '../services/local_attendance_api.dart';
 import 'auth_screen.dart';
-import 'identity_approvals_screen.dart';
 
 /// Post-login card: uid, role, device, offline token, enroll / check-in.
 class SessionScreen extends StatefulWidget {
@@ -29,17 +28,18 @@ class _SessionScreenState extends State<SessionScreen> {
     if (mounted) setState(() {});
   }
 
-  void _skipRosterSync() {
+  void _explainOfflineDemo() {
     ScaffoldMessenger.of(context).showSnackBar(
       const SnackBar(
-        content: Text('Roster sync skipped. Check-in stays on this device.'),
+        content: Text(
+          'Offline demo only: no roster or attendance data is sent.',
+        ),
       ),
     );
-    print('[AUTH] Online roster sync bypassed.');
+    print('[AUTH] Offline demo session remains local.');
   }
 
   Future<void> _signOut() async {
-    if (!session.offline) await AppSupabase.client.auth.signOut();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
@@ -60,24 +60,30 @@ class _SessionScreenState extends State<SessionScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Text(
-                'Leave fields blank if they do not need to change. An administrator must approve this request.',
+                'Leave fields blank if they do not need to change. The lecturer must approve this request.',
               ),
               const SizedBox(height: 16),
               TextField(
                 controller: roll,
                 textCapitalization: TextCapitalization.characters,
-                decoration: const InputDecoration(labelText: 'Correct roll number'),
+                decoration: const InputDecoration(
+                  labelText: 'Correct roll number',
+                ),
               ),
               TextField(
                 controller: name,
                 textCapitalization: TextCapitalization.words,
-                decoration: const InputDecoration(labelText: 'Correct full name'),
+                decoration: const InputDecoration(
+                  labelText: 'Correct full name',
+                ),
               ),
               TextField(
                 controller: reason,
                 minLines: 2,
                 maxLines: 3,
-                decoration: const InputDecoration(labelText: 'Reason for request'),
+                decoration: const InputDecoration(
+                  labelText: 'Reason for request',
+                ),
               ),
             ],
           ),
@@ -92,7 +98,9 @@ class _SessionScreenState extends State<SessionScreen> {
               if (reason.text.trim().length < 3 ||
                   (roll.text.trim().isEmpty && name.text.trim().isEmpty)) {
                 ScaffoldMessenger.of(dialogContext).showSnackBar(
-                  const SnackBar(content: Text('Enter a requested change and a reason.')),
+                  const SnackBar(
+                    content: Text('Enter a requested change and a reason.'),
+                  ),
                 );
                 return;
               }
@@ -112,24 +120,24 @@ class _SessionScreenState extends State<SessionScreen> {
     reason.dispose();
     if (values == null || !mounted) return;
     try {
-      await AppSupabase.client.rpc(
-        'request_identity_change',
-        params: {
-          'p_reason': values['reason'],
-          'p_roll_no': values['roll']!.isEmpty ? null : values['roll'],
-          'p_full_name': values['name']!.isEmpty ? null : values['name'],
-          'p_embedding': null,
-        },
+      await LocalAttendanceApi.requestIdentityChange(
+        session.sessionToken,
+        rollNo: values['roll']!.isEmpty ? null : values['roll'],
+        fullName: values['name']!.isEmpty ? null : values['name'],
+        reason: values['reason'],
       );
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Request sent. Your saved identity stays unchanged until an admin approves it.')),
+        const SnackBar(
+          content: Text(
+            'Request sent. Your saved identity stays unchanged until an admin approves it.',
+          ),
+        ),
       );
     } catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(error.toString())),
-      );
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
     }
   }
 
@@ -140,10 +148,7 @@ class _SessionScreenState extends State<SessionScreen> {
       appBar: AppBar(
         title: const Text('Module 1: Session'),
         actions: [
-          TextButton(
-            onPressed: _signOut,
-            child: const Text('Sign out'),
-          ),
+          TextButton(onPressed: _signOut, child: const Text('Sign out')),
         ],
       ),
       body: ListView(
@@ -197,24 +202,17 @@ class _SessionScreenState extends State<SessionScreen> {
                 _row(
                   'face',
                   enrolled
-                      ? 'Enrolled · changes require admin approval'
+                      ? 'Enrolled · changes require lecturer approval'
                       : 'Not enrolled',
                 ),
-                _row('account', session.offline ? 'Offline demo' : 'College account'),
+                _row(
+                  'account',
+                  session.offline ? 'Offline demo' : 'Lecturer laptop LAN',
+                ),
               ],
             ),
           ),
           const SizedBox(height: 16),
-          if (session.isAdmin && !session.offline) ...[
-            FilledButton.tonalIcon(
-              onPressed: () => Navigator.of(context).push(
-                MaterialPageRoute(builder: (_) => const IdentityApprovalsScreen()),
-              ),
-              icon: const Icon(Icons.fact_check_outlined),
-              label: const Text('Review identity change requests'),
-            ),
-            const SizedBox(height: 10),
-          ],
           if (!session.offline && session.hasStudentIdentity) ...[
             OutlinedButton.icon(
               onPressed: _requestProfileChange,
@@ -224,31 +222,33 @@ class _SessionScreenState extends State<SessionScreen> {
             const SizedBox(height: 10),
           ] else if (session.offline) ...[
             OutlinedButton.icon(
-              onPressed: _skipRosterSync,
+              onPressed: _explainOfflineDemo,
               icon: const Icon(Icons.cloud_off),
-              label: const Text('Skip live roster sync'),
+              label: const Text('About offline demo'),
             ),
           ],
           const SizedBox(height: 20),
-          if (session.hasStudentIdentity) FilledButton.icon(
-            onPressed: () => _openLiveness(LivenessMode.enroll),
-            icon: const Icon(Icons.face_retouching_natural),
-            label: Text(
-              enrolled
-                  ? session.offline
-                      ? 'Re-enroll face'
-                      : 'Request face replacement'
-                  : 'Enroll face',
+          if (session.hasStudentIdentity)
+            FilledButton.icon(
+              onPressed: () => _openLiveness(LivenessMode.enroll),
+              icon: const Icon(Icons.face_retouching_natural),
+              label: Text(
+                enrolled
+                    ? session.offline
+                          ? 'Re-enroll face'
+                          : 'Request face replacement'
+                    : 'Enroll face',
+              ),
             ),
-          ),
           if (session.hasStudentIdentity) const SizedBox(height: 12),
-          if (session.hasStudentIdentity) FilledButton.icon(
-            onPressed: enrolled
-                ? () => _openLiveness(LivenessMode.verify)
-                : null,
-            icon: const Icon(Icons.how_to_reg),
-            label: const Text('Check in (liveness → QR)'),
-          ),
+          if (session.hasStudentIdentity)
+            FilledButton.icon(
+              onPressed: enrolled
+                  ? () => _openLiveness(LivenessMode.verify)
+                  : null,
+              icon: const Icon(Icons.how_to_reg),
+              label: const Text('Check in (liveness → QR)'),
+            ),
           if (session.hasStudentIdentity && !enrolled)
             const Padding(
               padding: EdgeInsets.only(top: 12),
@@ -261,7 +261,7 @@ class _SessionScreenState extends State<SessionScreen> {
             const Padding(
               padding: EdgeInsets.only(top: 12),
               child: Text(
-                'Your enrolled roll number and face cannot be edited here. Replacement requests require administrator approval.',
+                'Your enrolled roll number and face cannot be edited here. Replacement requests require lecturer approval.',
                 style: TextStyle(color: Color(0xFF94A3B8)),
               ),
             ),

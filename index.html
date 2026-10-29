@@ -1,122 +1,52 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Lecturer Attendance Dashboard</title>
-  
-  <!-- Primary CDN: jsDelivr (Official GitHub Mirror) -->
+  <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Classroom Attendance</title>
   <script src="https://cdn.jsdelivr.net/gh/davidshimjs/qrcodejs@master/qrcode.min.js"></script>
-  
-  <!-- Automatic Fallback to unpkg CDN if jsDelivr fails to load -->
-  <script>
-    if (typeof QRCode === 'undefined') {
-      document.write('<script src="https://unpkg.com/qrcodejs@1.0.0/qrcode.min.js"><\/script>');
-    }
-  </script>
-
   <style>
-    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    body { margin: 0; background-color: #0f172a; color: #f8fafc; display: flex; height: 100vh; padding: 24px; gap: 24px; }
-    .panel { background: #1e293b; border-radius: 16px; padding: 32px; display: flex; flex-direction: column; }
-    .qr-panel { flex: 1; align-items: center; justify-content: center; text-align: center; border: 1px solid #334155; }
-    .roster-panel { flex: 1; border: 1px solid #334155; overflow-y: auto; }
-    #qrcode { background: #ffffff; padding: 20px; border-radius: 12px; margin: 20px 0; }
-    .timer-bar-bg { width: 100%; max-width: 300px; height: 8px; background: #334155; border-radius: 4px; overflow: hidden; }
-    .timer-bar-fill { height: 100%; width: 100%; background: #38bdf8; transition: width 0.1s linear; }
-    .token-text { font-family: monospace; color: #94a3b8; font-size: 14px; margin-top: 12px; }
-    .student-card { background: #0f172a; border-left: 4px solid #22c55e; padding: 12px 16px; border-radius: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; }
-    .demo-note { color: #fbbf24; font-size: 13px; line-height: 1.5; margin: 0 0 16px; }
-    .demo-button { border: 1px solid #38bdf8; background: #0369a1; color: white; border-radius: 8px; padding: 10px 14px; font-weight: 600; cursor: pointer; margin-bottom: 16px; }
-    .demo-button:hover { background: #0284c7; }
+    *{box-sizing:border-box;font-family:system-ui,-apple-system,"Segoe UI",sans-serif}body{margin:0;background:#0f172a;color:#f8fafc;padding:20px}
+    h1,h2,p{margin-top:0}.muted{color:#94a3b8}.grid{display:grid;grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr);gap:18px;max-width:1250px;margin:0 auto}
+    header{max-width:1250px;margin:0 auto 18px;display:flex;justify-content:space-between;align-items:center}.panel{background:#1e293b;border:1px solid #334155;border-radius:16px;padding:22px}
+    input,textarea,button{font:inherit;border-radius:8px;padding:11px 12px}input,textarea{width:100%;background:#0f172a;border:1px solid #475569;color:#fff;margin:5px 0 12px}textarea{min-height:110px}
+    button{border:0;background:#0284c7;color:white;font-weight:650;cursor:pointer}button.secondary{background:#334155}button.danger{background:#b91c1c}button:disabled{opacity:.45;cursor:default}
+    .row{display:flex;gap:10px;align-items:center}.row>*{flex:1}.status{min-height:22px;color:#38bdf8;margin:10px 0}.error{color:#f87171}.hidden{display:none!important}
+    #qrcode{background:white;border-radius:12px;padding:14px;width:max-content;margin:18px auto}#token{font:12px monospace;color:#94a3b8;overflow-wrap:anywhere}
+    .counter{display:inline-block;background:#0369a1;border-radius:20px;padding:5px 12px}.item{padding:13px 0;border-bottom:1px solid #334155}.item:last-child{border:0}.actions{display:flex;gap:8px;margin-top:10px}.actions button{flex:1}
+    @media(max-width:760px){.grid{grid-template-columns:1fr}header{align-items:flex-start;gap:10px;flex-direction:column}}
   </style>
 </head>
 <body>
-
-  <div class="panel qr-panel">
-    <h2>Course: CS101 - Algorithms</h2>
-    <p style="color: #94a3b8;">Scan with Student Attendance Mobile App</p>
-
-    <div id="qrcode"></div>
-
-    <div class="timer-bar-bg">
-      <div id="timer-bar" class="timer-bar-fill"></div>
-    </div>
-    <div id="token-display" class="token-text">Payload: Initializing...</div>
-  </div>
-
-  <div class="panel roster-panel">
-    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-      <h2>Live Check-in Roster</h2>
-      <span id="counter" style="background: #0369a1; padding: 6px 12px; border-radius: 20px; font-weight: bold;">0 Present</span>
-    </div>
-    <p class="demo-note">Offline demo: roster rows are simulated and do not come from the phone.</p>
-    <button id="add-demo-row" class="demo-button" type="button">Add simulated check-in</button>
-    <div id="roster-list"></div>
-  </div>
-
+  <header><div><h1>Classroom Attendance</h1><p class="muted">Lecturer control panel · local network</p></div><span id="connection" class="muted">Connecting…</span></header>
+  <main class="grid">
+    <section class="panel" id="login-panel"><h2>Lecturer sign in</h2><p class="muted">Use the administrator password configured on this laptop.</p>
+      <input id="password" type="password" placeholder="Administrator password"><button id="login">Sign in</button><div id="login-status" class="status"></div></section>
+    <section class="panel hidden" id="admin-panel">
+      <h2>Class setup</h2><label>Course code<input id="course" value="CS101"></label><label>Class title<input id="title" value="Algorithms"></label>
+      <div class="row"><button id="start">Start attendance session</button><button class="secondary" id="end" disabled>End session</button></div><div id="admin-status" class="status"></div>
+      <hr style="border-color:#334155;margin:22px 0"><h2>Import student roster</h2>
+      <p class="muted">CSV headings: <code>roll_no,full_name,course_code</code>. The course column is optional.</p><textarea id="csv" placeholder="roll_no,full_name,course_code&#10;25BCS001,Student Name,CS101"></textarea><div class="row"><button id="import">Import roster CSV</button><button class="secondary" id="mock">Load 100 mock students</button></div><p class="muted">Mock names are clearly labeled and use rolls 25BCS001–25BCS100.</p>
+      <hr style="border-color:#334155;margin:22px 0"><h2>Identity change requests</h2><div id="requests" class="muted">Sign in to load requests.</div>
+    </section>
+    <section class="panel hidden" id="projector"><h2 id="class-heading">No active class</h2><p class="muted">Students scan this changing code from the attendance app.</p>
+      <div id="qrcode"></div><div id="token">Waiting for an active class…</div><hr style="border-color:#334155;margin:20px 0"><h2>Live check-ins <span id="counter" class="counter">0</span></h2><div id="roster" class="muted">No check-ins yet.</div>
+    </section>
+  </main>
   <script>
-    const qrContainer = document.getElementById("qrcode");
-    const timerBar = document.getElementById("timer-bar");
-    const tokenDisplay = document.getElementById("token-display");
-    const rosterList = document.getElementById("roster-list");
-    const counter = document.getElementById("counter");
-
-    const qrcode = new QRCode(qrContainer, {
-      text: "INITIALIZING",
-      width: 240,
-      height: 240,
-      colorDark: "#000000",
-      colorLight: "#ffffff",
-      correctLevel: QRCode.CorrectLevel.H
-    });
-
-    let totalCount = 0;
-    const REFRESH_INTERVAL_MS = 2000;
-    let lastRefreshTime = Date.now();
-
-    function updateQrCode() {
-      const timestamp = Date.now();
-      const nonce = Math.floor(100000 + Math.random() * 900000);
-      const payload = JSON.stringify({ session: "CS101", nonce: nonce, ts: timestamp });
-
-      qrcode.makeCode(payload);
-      tokenDisplay.innerText = `Token: ${payload}`;
-      lastRefreshTime = Date.now();
-    }
-
-    function animateProgressBar() {
-      const elapsed = Date.now() - lastRefreshTime;
-      const remainingRatio = Math.max(0, 1 - (elapsed / REFRESH_INTERVAL_MS));
-      timerBar.style.width = (remainingRatio * 100) + "%";
-
-      if (elapsed >= REFRESH_INTERVAL_MS) {
-        updateQrCode();
-      }
-      requestAnimationFrame(animateProgressBar);
-    }
-
-    function addSimulatedStudent() {
-      totalCount++;
-      const studentId = `STU_25BCS${String(totalCount).padStart(3, '0')}`;
-      const timeStr = new Date().toLocaleTimeString();
-
-      const card = document.createElement("div");
-      card.className = "student-card";
-      card.innerHTML = `
-        <div>
-          <strong>${studentId}</strong>
-          <div style="font-size: 12px; color: #fbbf24;">SIMULATED DEMO ROW · not submitted by the app</div>
-        </div>
-        <span style="color: #fbbf24; font-size: 13px;">${timeStr}</span>
-      `;
-
-      rosterList.prepend(card);
-      counter.innerText = `${totalCount} Present`;
-    }
-
-    updateQrCode();
-    requestAnimationFrame(animateProgressBar);
-    document.getElementById("add-demo-row").addEventListener("click", addSimulatedStudent);
+    const $=id=>document.getElementById(id);let adminToken='',activeId='',poller;
+    async function api(path,options={}){const headers={'Content-Type':'application/json',...(adminToken?{Authorization:`Bearer ${adminToken}`}:{}) ,...(options.headers||{})};const response=await fetch(path,{...options,headers});const body=await response.json();if(!response.ok)throw Error(body.error||`Request failed (${response.status})`);return body}
+    function showStatus(el,message,error=false){el.textContent=message;el.className='status'+(error?' error':'')}
+    $('login').onclick=async()=>{try{const result=await api('/api/admin/login',{method:'POST',body:JSON.stringify({password:$('password').value})});adminToken=result.token;$('login-panel').classList.add('hidden');$('admin-panel').classList.remove('hidden');$('projector').classList.remove('hidden');$('connection').textContent='Connected to laptop server';await loadRequests();await loadSessions()}catch(e){const help=e instanceof TypeError?'Could not contact this page’s server. Start server.py on the lecturer laptop and open http://localhost:8765 there (not GitHub Pages or a file:// URL).':e.message;showStatus($('login-status'),help,true)}};
+    $('start').onclick=async()=>{try{const r=await api('/api/admin/sessions',{method:'POST',body:JSON.stringify({courseCode:$('course').value,title:$('title').value})});activeId=r.id;$('class-heading').textContent=`${$('course').value.toUpperCase()} · ${$('title').value}`;$('end').disabled=false;showStatus($('admin-status'),'Attendance session is live.');refresh();poller=setInterval(refresh,900)}catch(e){showStatus($('admin-status'),e.message,true)}};
+    $('end').onclick=async()=>{try{await api(`/api/admin/sessions/${activeId}/end`,{method:'POST',body:'{}'});clearInterval(poller);activeId='';$('end').disabled=true;$('token').textContent='Session ended.';showStatus($('admin-status'),'Class session ended.')}catch(e){showStatus($('admin-status'),e.message,true)}};
+    $('import').onclick=async()=>{try{const result=await api('/api/admin/roster/import',{method:'POST',body:JSON.stringify({csv:$('csv').value})});showStatus($('admin-status'),`Imported ${result.imported} roster rows.`)}catch(e){showStatus($('admin-status'),e.message,true)}};
+    $('mock').onclick=async()=>{try{const result=await api('/api/admin/roster/mock',{method:'POST',body:'{}'});showStatus($('admin-status'),`Added mock roster rolls ${result.firstRollNo}–${result.lastRollNo}. Test names are “Mock Student 001” etc.`)}catch(e){showStatus($('admin-status'),e.message,true)}};
+    async function refresh(){if(!activeId)return;try{const [payload,rows]=await Promise.all([api(`/api/sessions/${activeId}/token`),api(`/api/sessions/${activeId}/attendance`)]);if(typeof QRCode==='undefined')throw Error('QR renderer needs internet on this laptop.');const value=JSON.stringify({session:payload.session,nonce:payload.nonce,ts:payload.ts,sessionId:payload.sessionId});if(!$('qrcode').dataset.last||$('qrcode').dataset.last!==value){$('qrcode').replaceChildren();new QRCode($('qrcode'),{text:value,width:260,height:260,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.H});$('qrcode').dataset.last=value}$('token').textContent=value;$('counter').textContent=rows.length;$('roster').innerHTML=rows.length?rows.map(r=>`<div class="item"><strong>${escapeHtml(r.roll_no)}</strong> · ${escapeHtml(r.full_name)}<div class="muted">${new Date(r.checked_in_at).toLocaleTimeString()}</div></div>`).join(''):'No check-ins yet.'}catch(e){showStatus($('admin-status'),e.message,true)}}
+    function escapeHtml(value){const el=document.createElement('span');el.textContent=value;return el.innerHTML}
+    async function loadRequests(){try{const list=await api('/api/admin/requests');$('requests').innerHTML=list.length?list.map(r=>`<div class="item"><strong>${escapeHtml(r.full_name)} · ${escapeHtml(r.roll_no)}</strong><p>${r.requested_roll_no?`Roll: ${escapeHtml(r.requested_roll_no)}<br>`:''}${r.requested_name?`Name: ${escapeHtml(r.requested_name)}<br>`:''}${r.embedding?'Face replacement<br>':''}<span class="muted">Reason: ${escapeHtml(r.reason)}</span></p><div class="actions"><button class="danger" onclick="review(${r.id},false)">Reject</button><button onclick="review(${r.id},true)">Approve</button></div></div>`).join(''):'No pending identity changes.'}catch(e){$('requests').textContent=e.message}}
+    window.review=async(id,approve)=>{try{await api(`/api/admin/requests/${id}`,{method:'POST',body:JSON.stringify({approve})});await loadRequests()}catch(e){alert(e.message)}};
+    async function loadSessions(){try{const list=await api('/api/admin/sessions');const running=list.find(s=>!s.ended_at);if(running){activeId=running.id;$('course').value=running.course_code;$('title').value=running.title;$('class-heading').textContent=`${running.course_code} · ${running.title}`;$('end').disabled=false;poller=setInterval(refresh,900)}}catch(e){showStatus($('admin-status'),e.message,true)}}
+    api('/api/health').then(()=>{$('connection').textContent='Laptop server ready'}).catch(()=>{$('connection').textContent='Cannot reach local server';$('connection').className='error';$('login-status').textContent='Start the Python server on the lecturer laptop, then open http://localhost:8765 on that same laptop. Do not open index.html directly or host it on GitHub Pages.';$('login-status').className='status error'});
   </script>
 </body>
 </html>

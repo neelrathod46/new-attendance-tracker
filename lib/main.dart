@@ -1,11 +1,9 @@
 import 'package:flutter/material.dart';
 
 import 'features/module_1_auth/screens/auth_screen.dart';
-import 'features/module_1_auth/services/supabase_client.dart';
 
-Future<void> main() async {
+void main() {
   WidgetsFlutterBinding.ensureInitialized();
-  await AppSupabase.initialize();
   runApp(const AttendanceApp());
 }
 

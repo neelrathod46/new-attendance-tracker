@@ -14,6 +14,7 @@ enum TokenValidationStatus {
 /// Expected schema: {"session": "CS101", "nonce": 849120, "ts": 1793212800142}
 class QrPayload {
   final String session;
+  final String sessionId;
   final int nonce;
   final int timestamp;
   final String rawJson;
@@ -24,6 +25,7 @@ class QrPayload {
 
   const QrPayload({
     required this.session,
+    this.sessionId = '',
     required this.nonce,
     required this.timestamp,
     required this.rawJson,
@@ -90,6 +92,7 @@ class QrPayload {
       if (nonce <= 0 || ts <= 0) {
         return QrPayload(
           session: session,
+          sessionId: decoded['sessionId']?.toString() ?? '',
           nonce: nonce,
           timestamp: ts,
           rawJson: raw,
@@ -170,6 +173,7 @@ class QrPayload {
           : '${ageMs < 0 ? 0 : ageMs}ms';
       return QrPayload(
         session: session,
+        sessionId: decoded['sessionId']?.toString() ?? '',
         nonce: nonce,
         timestamp: ts,
         rawJson: raw,

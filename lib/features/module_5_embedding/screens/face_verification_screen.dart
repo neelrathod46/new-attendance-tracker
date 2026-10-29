@@ -99,8 +99,11 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
   void _openScanner(FaceVerificationResult result) {
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(
-        builder: (_) =>
-            QrScannerScreen(verification: result, session: widget.session),
+        builder: (_) => QrScannerScreen(
+          verification: result,
+          session: widget.session,
+          verificationEmbedding: _capturedEmbedding,
+        ),
       ),
       (route) => route.isFirst,
     );

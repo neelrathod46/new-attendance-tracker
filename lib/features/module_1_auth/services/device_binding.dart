@@ -3,8 +3,7 @@ import 'dart:io';
 import 'package:device_info_plus/device_info_plus.dart';
 
 /// Reads a build identifier for display in the offline demo.
-/// Android's build id is not a unique hardware UUID; Supabase device binding
-/// will need a persistent installation UUID when the online path is added.
+/// Android's build id is shown for diagnostics; it is not a hardware UUID.
 Future<String> readDeviceId() async {
   try {
     final plugin = DeviceInfoPlugin();

@@ -1,9 +1,8 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
-import 'package:supabase_flutter/supabase_flutter.dart';
 
-import '../../module_1_auth/services/supabase_client.dart';
+import '../../module_1_auth/services/local_attendance_api.dart';
 import '../../module_1_auth/models/student_session.dart';
 import '../../module_4_liveness/models/liveness_result.dart';
 import '../models/enrollment_profile.dart';
@@ -72,33 +71,32 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
   Future<void> _save() async {
     final embedding = _embedding;
     if (embedding == null) return;
-    final isReplacement = !widget.session.offline &&
-        widget.session.enrollment != null;
+    final isReplacement =
+        !widget.session.offline && widget.session.enrollment != null;
     setState(() {
       _working = true;
       _error = null;
     });
     try {
       if (!widget.session.offline) {
-        final client = AppSupabase.client;
         if (widget.session.enrollment == null) {
-          print('[ENROLL] Saving initial face enrollment to Supabase.');
-          await client.rpc(
-            'save_initial_face_enrollment',
-            params: {'p_embedding': embedding},
+          print(
+            '[ENROLL] Saving initial face enrollment to lecturer LAN server.',
+          );
+          await LocalAttendanceApi.saveInitialEnrollment(
+            widget.session.sessionToken,
+            embedding,
           );
           widget.session.enrollment = EnrollmentProfile(
             studentId: widget.session.studentId,
             embedding: embedding,
           );
         } else {
-          print('[ENROLL] Submitting face replacement for admin approval.');
-          await client.rpc(
-            'request_identity_change',
-            params: {
-              'p_reason': 'Student requested face enrollment replacement.',
-              'p_embedding': embedding,
-            },
+          print('[ENROLL] Submitting face replacement for lecturer approval.');
+          await LocalAttendanceApi.requestIdentityChange(
+            widget.session.sessionToken,
+            reason: 'Student requested face enrollment replacement.',
+            embedding: embedding,
           );
         }
       } else {
@@ -106,22 +104,30 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
           studentId: widget.session.studentId,
           embedding: embedding,
         );
-        print('[ENROLL] Saved offline demo profile for ${widget.session.studentId}.');
+        print(
+          '[ENROLL] Saved offline demo profile for ${widget.session.studentId}.',
+        );
       }
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
       final navigator = Navigator.of(context);
       if (isReplacement) {
         messenger.showSnackBar(
-          const SnackBar(content: Text('Face change request submitted for administrator approval.')),
+          const SnackBar(
+            content: Text(
+              'Face change request submitted for lecturer approval.',
+            ),
+          ),
         );
       }
       navigator.pop();
       navigator.pop();
-    } on PostgrestException catch (error) {
-      if (mounted) setState(() => _error = error.message);
     } catch (error) {
-      if (mounted) setState(() => _error = error.toString().replaceFirst('Bad state: ', ''));
+      if (mounted) {
+        setState(
+          () => _error = error.toString().replaceFirst('Bad state: ', ''),
+        );
+      }
     } finally {
       if (mounted) setState(() => _working = false);
     }
@@ -145,8 +151,8 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
             widget.session.offline
                 ? 'Offline demo: this reference stays in memory on this phone.'
                 : widget.session.enrollment == null
-                ? 'The face photo is processed on this phone. Only the model embedding is uploaded.'
-                : 'A replacement embedding will be sent to an administrator for approval. The active face stays unchanged until approval.',
+                ? 'The face photo is processed on this phone. Only its 192-number model embedding is sent to the lecturer laptop.'
+                : 'A replacement embedding will be sent to the lecturer for approval. The active face stays unchanged until approval.',
             style: TextStyle(color: Color(0xFF94A3B8)),
           ),
           const SizedBox(height: 20),

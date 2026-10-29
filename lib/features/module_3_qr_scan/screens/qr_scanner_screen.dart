@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../module_1_auth/models/student_session.dart';
+import '../../module_1_auth/services/local_attendance_api.dart';
 import '../models/face_verification_result.dart';
 import '../models/qr_payload.dart';
 import '../widgets/scanner_overlay.dart';
@@ -19,8 +20,14 @@ import '../widgets/token_validation_card.dart';
 class QrScannerScreen extends StatefulWidget {
   final FaceVerificationResult? verification;
   final StudentSession? session;
+  final List<double>? verificationEmbedding;
 
-  const QrScannerScreen({super.key, this.verification, this.session});
+  const QrScannerScreen({
+    super.key,
+    this.verification,
+    this.session,
+    this.verificationEmbedding,
+  });
 
   @override
   State<QrScannerScreen> createState() => _QrScannerScreenState();
@@ -147,6 +154,64 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _latestPayload = null;
       _isProcessing = false;
     });
+  }
+
+  Future<void> _submitAttendance(QrPayload payload) async {
+    final session = widget.session;
+    if (session == null || session.offline) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'Offline demo complete. No attendance record was created.',
+          ),
+        ),
+      );
+      _resumeScanning();
+      return;
+    }
+    final embedding = widget.verificationEmbedding;
+    if (embedding == null || payload.sessionId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text(
+            'This QR code is missing the session data needed to submit attendance.',
+          ),
+        ),
+      );
+      _resumeScanning();
+      return;
+    }
+    setState(() => _isProcessing = true);
+    try {
+      print(
+        '[QR_SCAN] Sending token and verified embedding to lecturer LAN server.',
+      );
+      await LocalAttendanceApi.submitCheckIn(
+        token: session.sessionToken,
+        sessionId: payload.sessionId,
+        courseCode: payload.session,
+        nonce: payload.nonce,
+        timestamp: payload.timestamp,
+        embedding: embedding,
+      );
+      print(
+        '[QR_SCAN] Attendance accepted by lecturer server for ${session.studentId}.',
+      );
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Attendance recorded for this class.')),
+      );
+      Navigator.of(context).popUntil((route) => route.isFirst);
+    } catch (error) {
+      print('[QR_SCAN] Attendance submission rejected: $error');
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error.toString().replaceFirst('HttpException: ', '')),
+        ),
+      );
+      _resumeScanning();
+    }
   }
 
   void _toggleTorch() async {
@@ -372,20 +437,10 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                   ? TokenValidationCard(
                       payload: _latestPayload!,
                       onDismiss: _resumeScanning,
-                      onSkipOnlineSubmit: () {
-                        print(
-                          '[QR_SCAN] Roster submit skipped offline '
-                          'student=${widget.session?.studentId}.',
-                        );
-                        ScaffoldMessenger.of(context).showSnackBar(
-                          const SnackBar(
-                            content: Text(
-                              'Attendance was not sent. Roster sync needs Supabase.',
-                            ),
-                          ),
-                        );
-                        _resumeScanning();
-                      },
+                      onSubmit: () => _submitAttendance(_latestPayload!),
+                      submitLabel: widget.session?.offline == true
+                          ? 'Finish demo'
+                          : 'Submit attendance',
                     )
                   : _buildAwaitingScannerHint(),
             ),
