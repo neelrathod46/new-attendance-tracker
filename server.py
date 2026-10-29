@@ -10,6 +10,7 @@ import os
 import secrets
 import socket
 import sqlite3
+import sys
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -380,8 +381,15 @@ def main():
         print(f"[SERVER]   http://{address}:{args.port}/api/health")
     if not addresses:
         print("[SERVER]   Could not detect an address; check Wi-Fi adapter settings.")
-    print(f"[SERVER] If phones cannot connect, allow inbound TCP port {args.port} "
-          "in the laptop firewall on its Private network profile.")
+    if os.name == "nt":
+        print(f"[SERVER] If phones cannot connect, allow inbound TCP port {args.port} "
+              "in the Windows Defender Firewall for Private networks.")
+    elif sys.platform == "darwin":
+        print("[SERVER] If phones cannot connect, allow incoming connections for Python "
+              "in macOS Firewall settings.")
+    else:
+        print(f"[SERVER] If UFW is active and phones cannot connect, run: "
+              f"sudo ufw allow {args.port}/tcp")
     print("[SERVER] Set ATTENDANCE_ADMIN_PASSWORD before sharing this server.")
     try:
         server.serve_forever()

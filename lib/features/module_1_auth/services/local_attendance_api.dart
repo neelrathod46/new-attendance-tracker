@@ -47,7 +47,14 @@ class LocalAttendanceApi {
       if (token != null) {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       }
-      if (body != null) request.write(jsonEncode(body));
+      if (body != null) {
+        // The standard-library server reads Content-Length and does not decode
+        // chunked request bodies. Set the byte length explicitly so enrollment
+        // and attendance JSON reaches it on physical Android devices.
+        final encodedBody = utf8.encode(jsonEncode(body));
+        request.contentLength = encodedBody.length;
+        request.add(encodedBody);
+      }
       final response = await request.close().timeout(
         const Duration(seconds: 8),
       );
