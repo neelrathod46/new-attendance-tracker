@@ -1,9 +1,21 @@
 name: Build APK
-on: [push, workflow_dispatch] 
+on:
+  push:
+    paths:
+      - '.github/workflows/build.yml'
+      - 'android/**'
+      - 'lib/**'
+      - 'assets/mobile_face_net.tflite'
+      - 'pubspec.yaml'
+      - 'pubspec.lock'
+  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    concurrency:
+      group: android-apk-${{ github.ref }}
+      cancel-in-progress: true
     steps:
       - uses: actions/checkout@v4
 
@@ -12,18 +24,26 @@ jobs:
         with:
           distribution: temurin
           java-version: '17'
+          cache: gradle
+          cache-dependency-path: |
+            pubspec.lock
+            android/gradle/wrapper/gradle-wrapper.properties
+            android/settings.gradle.kts
+            android/build.gradle.kts
+            android/app/build.gradle.kts
 
       - name: Setup Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' 
+          channel: stable
           cache: true
+          pub-cache: true
 
       - name: Get dependencies
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --debug
+        run: flutter build apk --debug --no-pub
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

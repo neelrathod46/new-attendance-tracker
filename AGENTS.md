@@ -1,6 +1,6 @@
 # Project instructions
 
-Student attendance system: Flutter Android student app plus a lecturer dashboard served locally from the lecturer laptop. The laptop server is Python standard library + SQLite; no Docker, Node, cloud backend, Supabase, or Firebase.
+Student attendance system: Flutter Android student app plus a lecturer dashboard served locally from the lecturer laptop. The laptop server is Python standard library + SQLite. Optional Google Sheets copying uses the included Google Apps Script web app; no Docker, Node, Supabase, or Firebase.
 
 ## Commands and environment
 
@@ -14,9 +14,11 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 
 - `lib/main.dart` starts the student app at `lib/features/module_1_auth/screens/auth_screen.dart`.
 - `server.py` serves `index.html` and `/api/...` routes from one process. It stores roster claims, face vectors, approval requests, class sessions, and check-ins in SQLite.
+- `courses.csv` maps course names to Apps Script web app URLs and is imported at server startup. Lecturers can also upload the file through the dashboard. `google_sheets_apps_script.gs` is the optional Google Sheets reader/writer. Roster fetches happen on lecturer request; attendance sync happens once to the selected course's sheet when a class session ends.
 - `index.html` is the lecturer interface for importing a CSV roster, starting/ending a class, presenting the rotating QR, reviewing identity changes, and watching submitted attendance.
 - `lib/features/module_1_auth/services/local_attendance_api.dart` is the app's LAN API client. Students can set the lecturer address in the app; `ATTENDANCE_SERVER_URL` provides a build/run default.
 - Student identity must match the lecturer-imported roster. The first face embedding is locked; later identity or face changes require lecturer approval.
+- A registration reset is requested in the app and only applied after lecturer approval; approval removes the face vector and releases the roster claim while preserving attendance history.
 - The offline demo remains in-memory and does not create attendance records.
 
 ## Verification rules
@@ -24,7 +26,7 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 1. Module 4 liveness runs before Module 5 face verification.
 2. Enrollment and matching use `assets/mobile_face_net.tflite` (192 values). The student camera capture is processed on device; send only the embedding to the laptop server.
 3. Module 3 QR scanner is available only after a fresh successful face match (Euclidean distance <= 0.90).
-4. Attendance submissions include the QR token and current face embedding. `server.py` checks the current nonce, 3-second token age, one check-in per student/session, and the embedding match again before writing a row.
+4. Attendance submissions include the QR token and current face embedding. `server.py` checks the current nonce, one-second token age, one check-in per student/session, and the embedding match again before writing a row. A valid scan submits automatically.
 5. Local client checks are for experience; server checks decide whether attendance is recorded. Keep the lecturer service on a trusted private network. It currently uses HTTP and is not for internet exposure.
 
 ## Product and code conventions
@@ -40,4 +42,7 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 - Tokens use the lecturer laptop's clock. Student devices with substantially incorrect clocks may reject a QR before server submission.
 - SQLite is stored on the lecturer laptop and has no automatic remote backup or multi-lecturer synchronization.
 - Course rosters are imported and a lecturer starts a course session manually; the server does not yet enforce per-course enrollment membership.
-- The lecturer page has a **Demo** action that seeds `Mock Student 001`–`Mock Student 100` with roll numbers `25BCS001`–`25BCS100` for local trials.
+- A first-time roster claim proves the submitted name/roll pair matches an unclaimed row, but not that the claimant is the student. Recommend in-person verification or a private one-time enrollment code for stronger initial identity assurance.
+- SQLite remains the attendance source of truth. Google Sheets sync is an optional copy and requires internet from the lecturer laptop; a failed sync can be retried from the dashboard.
+- Each class session records Class/Lab/Tutorial type and duration in hours. A successful check-in contributes the full configured session duration in its Google Sheets cell; absent students remain blank.
+- The lecturer page can fetch the roster from the first two columns of the configured Google Sheet. A starter roster containing Neel Rathod (`25BCS099`) and sample students is seeded once for local trials.

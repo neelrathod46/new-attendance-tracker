@@ -110,6 +110,7 @@ class LocalAttendanceApi {
     String? fullName,
     String? reason,
     List<double>? embedding,
+    bool resetRegistration = false,
   }) async {
     await _request(
       '/api/student/identity-request',
@@ -120,9 +121,17 @@ class LocalAttendanceApi {
         'fullName': fullName,
         'reason': reason,
         'embedding': ?embedding,
+        'resetRegistration': resetRegistration,
       },
     );
   }
+
+  static Future<void> requestRegistrationReset(String token) =>
+      requestIdentityChange(
+        token,
+        reason: 'Student requested a registration and face reset.',
+        resetRegistration: true,
+      );
 
   static Future<Map<String, dynamic>> submitCheckIn({
     required String token,

@@ -148,11 +148,8 @@ class QrPayload {
         );
       }
 
-      // Student submission deadline is 3.0 seconds (3000 ms) from generation.
-      // The projector refreshes every 2.0s; the extra second absorbs camera and
-      // network latency. Superseded codes are rejected above, so this window
-      // cannot be used to replay an older code.
-      if (ageMs > 3000) {
+      // Attendance must reach the lecturer server within one second of issue.
+      if (ageMs > 1000) {
         final ageSec = (ageMs / 1000.0).toStringAsFixed(1);
         return QrPayload(
           session: session,
@@ -166,7 +163,7 @@ class QrPayload {
         );
       }
 
-      // Valid token (0 <= ageMs <= 3000)
+      // Valid token (0 <= ageMs <= 1000)
       final ageDisplay = ageMs >= 1000
           ? '${(ageMs / 1000.0).toStringAsFixed(1)}s'
           : '${ageMs < 0 ? 0 : ageMs}ms';

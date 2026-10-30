@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
@@ -145,7 +146,12 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
 
     setState(() {
       _latestPayload = payload;
+      _isProcessing = payload.isValid;
     });
+    if (payload.isValid) {
+      print('[QR_SCAN] Valid QR detected; submitting attendance automatically.');
+      unawaited(_submitAttendance(payload));
+    }
   }
 
   void _resumeScanning() {
@@ -296,7 +302,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
             Text(
-              'Face verified · code expires in 3 seconds',
+              'Face verified · code expires in 1 second',
               style: TextStyle(
                 fontSize: 11,
                 color: const Color(0xFF38BDF8).withOpacity(0.9),
@@ -438,6 +444,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
                       payload: _latestPayload!,
                       onDismiss: _resumeScanning,
                       onSubmit: () => _submitAttendance(_latestPayload!),
+                      isSubmitting: _isProcessing,
                       submitLabel: widget.session?.offline == true
                           ? 'Finish demo'
                           : 'Submit attendance',

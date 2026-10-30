@@ -141,6 +141,42 @@ class _SessionScreenState extends State<SessionScreen> {
     }
   }
 
+  Future<void> _requestRegistrationReset() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        title: const Text('Request registration reset?'),
+        content: const Text(
+          'Your lecturer must approve this. If approved, your face enrollment will be removed and your roster identity can be registered again. Past attendance will remain saved.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(dialogContext, false),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(dialogContext, true),
+            child: const Text('Send request'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true || !mounted) return;
+    try {
+      await LocalAttendanceApi.requestRegistrationReset(session.sessionToken);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Reset request sent. Your lecturer must approve it.'),
+        ),
+      );
+    } catch (error) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+          .showSnackBar(SnackBar(content: Text(error.toString())));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final enrolled = session.isEnrolled;
@@ -352,6 +388,17 @@ class _SessionScreenState extends State<SessionScreen> {
                       minimumSize: const Size.fromHeight(46),
                       foregroundColor: const Color(0xFFBAE6FD),
                       side: const BorderSide(color: Color(0xFF334155)),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  OutlinedButton.icon(
+                    onPressed: _requestRegistrationReset,
+                    icon: const Icon(Icons.restart_alt_rounded),
+                    label: const Text('Request registration reset'),
+                    style: OutlinedButton.styleFrom(
+                      minimumSize: const Size.fromHeight(46),
+                      foregroundColor: const Color(0xFFFBBF24),
+                      side: const BorderSide(color: Color(0xFF475569)),
                     ),
                   ),
                   const SizedBox(height: 14),

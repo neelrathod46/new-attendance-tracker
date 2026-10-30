@@ -11,6 +11,7 @@ class TokenValidationCard extends StatefulWidget {
   final VoidCallback onDismiss;
   final VoidCallback? onSubmit;
   final String submitLabel;
+  final bool isSubmitting;
 
   const TokenValidationCard({
     super.key,
@@ -18,6 +19,7 @@ class TokenValidationCard extends StatefulWidget {
     required this.onDismiss,
     this.onSubmit,
     this.submitLabel = 'Submit attendance',
+    this.isSubmitting = false,
   });
 
   @override
@@ -163,9 +165,9 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                         style: TextStyle(color: Colors.white70, fontSize: 13),
                       ),
                       Text(
-                        '${(_currentElapsedMs / 1000.0).toStringAsFixed(2)}s  /  3.00s max',
+                        '${(_currentElapsedMs / 1000.0).toStringAsFixed(2)}s  /  1.00s max',
                         style: TextStyle(
-                          color: _currentElapsedMs <= 3000
+                          color: _currentElapsedMs <= 1000
                               ? const Color(0xFF22C55E)
                               : const Color(0xFFEF4444),
                           fontFamily: 'monospace',
@@ -179,10 +181,10 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                   ClipRRect(
                     borderRadius: BorderRadius.circular(4),
                     child: LinearProgressIndicator(
-                      value: (_currentElapsedMs / 3000.0).clamp(0.0, 1.0),
+                      value: (_currentElapsedMs / 1000.0).clamp(0.0, 1.0),
                       backgroundColor: const Color(0xFF334155),
                       valueColor: AlwaysStoppedAnimation<Color>(
-                        _currentElapsedMs <= 3000
+                        _currentElapsedMs <= 1000
                             ? const Color(0xFF22C55E)
                             : const Color(0xFFEF4444),
                       ),
@@ -271,6 +273,22 @@ class _TokenValidationCardState extends State<TokenValidationCard> {
                 const SizedBox(height: 14),
 
                 // Action Buttons
+                if (widget.isSubmitting)
+                  const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 8),
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                        SizedBox(width: 10),
+                        Text('Sending attendance automatically…'),
+                      ],
+                    ),
+                  )
+                else
                 Row(
                   children: [
                     Expanded(

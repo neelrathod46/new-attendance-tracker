@@ -15,8 +15,8 @@ Python 3.10 or newer is required; the server uses only Python's standard library
 
    On Windows PowerShell, use `$env:ATTENDANCE_ADMIN_PASSWORD='choose-a-classroom-password'` before `python server.py --host 0.0.0.0 --port 8765`.
 2. Leave that terminal open. Startup prints one or more LAN health-check addresses. Use the address for the Wi-Fi adapter (usually `192.168.x.x` or `10.x.x.x`), not a VPN, Docker, or virtual adapter. On the lecturer laptop, open `http://localhost:8765` in a browser and sign in using the password you set.
-3. Expand **Import your student roster**. For a quick trial, choose **Add 100 mock students**. This inserts `Mock Student 001` through `Mock Student 100`, with roll numbers `25BCS001` through `25BCS100` and course `CS101`. For real classes, instead paste a CSV with `roll_no,full_name,course_code` headings into the roster box and import it. Do not use mock names for real attendance.
-4. Enter a course code and class title, then choose **Start attendance session**. Keep the dashboard open; the QR rotates and check-ins appear in the roster panel.
+3. A starter roster is added once to a new or existing database: Neel Rathod (`25BCS099`) and Sample Student 001–005 (`25BCS001`–`25BCS005`). For a real roster, choose **Fetch roster from Google Sheets** or import a CSV with `roll_no,full_name,course_code` headings. Fetching/importing updates matching unclaimed starter entries and removes the remaining unclaimed starter examples.
+4. The server loads course mappings from `courses.csv` in the project folder at startup. Select a course from the dashboard dropdown, choose **Class**, **Lab**, or **Tutorial**, set the class duration in hours, then choose **Start attendance session**. Keep the dashboard open; the QR rotates and check-ins appear in the roster panel.
 5. Connect the lecturer laptop and student phones to the same institute Wi-Fi. The Wi-Fi must allow devices to communicate with each other (client isolation must be off).
 6. Find the laptop's Wi-Fi IPv4 address:
 
@@ -27,8 +27,27 @@ Python 3.10 or newer is required; the server uses only Python's standard library
    From a phone on that Wi-Fi, open `http://<laptop-ip>:8765/api/health` in its browser, replacing `<laptop-ip>` with that address. It should show a small JSON response containing `"ok":true`.
 
 7. Open the attendance app on each student phone. In **Lecturer laptop server address**, enter the Wi-Fi URL printed in the lecturer terminal, without `/api/health` (for example `http://192.168.1.20:8765`). APKs for physical phones do not assume an emulator address. Then enter the student's exact roster name and roll number and choose **Register / claim roster identity**. A returning student uses **Sign in** with the same name and roll number.
-8. Complete **Enroll face** once. For check-in, complete the liveness/face verification flow and scan the currently displayed QR. Tap **Submit attendance**. The server confirms the embedding and token before adding the student to the lecturer's live roster.
+8. Complete **Enroll face** once. For check-in, complete the liveness/face verification flow and scan the currently displayed QR. The app submits attendance automatically as soon as it reads a valid QR. The server confirms the embedding and one-second token before adding the student to the lecturer's live roster.
 9. At the end of class, choose **End session**. Keep the server terminal and laptop running until everyone has checked in.
+
+## Google Sheets attendance
+
+Attendance always saves to the laptop's SQLite database first. Google Sheets is an optional live copy. Check-ins do not contact Apps Script. When the lecturer ends a session, one request sends only the session date, class type, duration in hours, and roll numbers of students who checked in. The Apps Script uses those roll numbers to fill the duration in matching rows already in the sheet; it does not receive names or the local roster, and it does not append student rows. Absent students' cells remain blank. The first two columns are `Name` and `Roll No`. Each event heading is its date and type, such as `2026-10-30 Class`. The CSV download uses this same wide layout, with one student per row and one session per column. If the update fails, attendance remains in SQLite and the dashboard reports the error.
+
+1. For each course, create or open its Google spreadsheet and copy its ID from the URL (the part between `/d/` and `/edit`). The first tab is used. The sheet needs `Name` and `Roll No` in columns A and B.
+2. Create an Apps Script web app for each sheet. Paste in [`google_sheets_apps_script.gs`](google_sheets_apps_script.gs), set `SPREADSHEET_ID` in **Project Settings → Script properties**, then deploy as a web app (execute as you; access for anyone) and copy the URL ending in `/exec`. Each course needs a URL configured for its own spreadsheet.
+3. Make a CSV with these exact column headings and one row per course:
+
+   ```csv
+   course_name,web_app_url
+   Algorithms,https://script.google.com/macros/s/DEPLOYMENT_ID_1/exec
+   Physics Lab,https://script.google.com/macros/s/DEPLOYMENT_ID_2/exec
+   ```
+
+4. Save this list as `courses.csv` beside `server.py`. The server reads it on startup and adds or updates those course links in its SQLite database. You can also upload the CSV from **Manage courses and Google Sheets** for immediate use; edit `courses.csv` too if the updated links should remain the source of truth after later restarts.
+5. Select a course in **Class setup**. **Fetch roster from Google Sheets** reads that course's first two sheet columns. Check-ins save locally during class; ending the session sends its date, session type, duration, and attended roll numbers to that course's sheet. **Export selected course as CSV** downloads a local CSV matching that course's sheet layout.
+
+If you edit an Apps Script later, update its deployment so the `/exec` URL serves the latest code, then keep that URL in the course CSV. Google Sheets sync needs internet on the lecturer laptop; QR check-in and local SQLite recording continue if Sheets is temporarily unavailable.
 
 The student app has a **Lecturer laptop server address** field, so you can enter the laptop IP there without rebuilding the APK. For development from a connected phone, you can also provide the address when launching the app:
 
@@ -53,8 +72,11 @@ The lecturer laptop firewall must allow inbound TCP port `8765` on its **Private
 - The lecturer imports the official roster. A student enters the exact roster name and roll number to claim their row. A claimed identity cannot be claimed again.
 - The student completes liveness and face enrollment. Only the 192-value MobileFaceNet embedding is sent to the lecturer server; the captured face image is deleted locally.
 - The enrolled roll number and face are locked. Students can request name, roll, or face corrections; the lecturer reviews these in the dashboard.
-- Attendance requires liveness, a matching enrolled face, and a current projector QR token. The server checks the token age/nonce and repeats the embedding match before recording one attendance row per student per class session.
+- A student can request a registration reset in the app; it takes effect only after lecturer approval. Approval releases the roster claim and removes the saved face vector while retaining past attendance.
+- Attendance requires liveness, a matching enrolled face, and a current projector QR token. The app submits automatically after a valid scan. The lecturer server rotates tokens every second and rejects check-ins if the token is over one second old; it also repeats the embedding match before recording one attendance row per student per class session.
 - The **Continue offline demo** button only exercises the local camera/face/QR flow. It does not write attendance.
+
+The server rejects a first-time name/roll pair unless it matches an unclaimed row in the lecturer's imported roster. For stronger identity assurance, have the lecturer verify each student in person before their first claim, or add a one-time registration code delivered privately to that student. A name and roll number alone can still be copied by someone who knows another student's unclaimed roster details.
 
 ## Data and backups
 

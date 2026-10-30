@@ -53,9 +53,9 @@
     .login-card .brand { margin-bottom:35px; }
     .login-card h2 { font-size:27px; margin-top:13px; }
     .field { display:block; margin:20px 0 15px; color:#dbe6f3; font-size:12px; font-weight:650; }
-    .field input,.field textarea { display:block; width:100%; margin-top:8px; padding:12px 14px; color:var(--text); background:#0a1423; border:1px solid #304158; border-radius:11px; outline:none; transition:border-color .15s,box-shadow .15s; }
+    .field input,.field textarea,.field select { display:block; width:100%; margin-top:8px; padding:12px 14px; color:var(--text); background:#0a1423; border:1px solid #304158; border-radius:11px; outline:none; transition:border-color .15s,box-shadow .15s; }
     .field textarea { resize:vertical; min-height:108px; line-height:1.55; font:12px ui-monospace,SFMono-Regular,Menlo,monospace; }
-    .field input:focus,.field textarea:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(56,189,248,.12); }
+    .field input:focus,.field textarea:focus,.field select:focus { border-color:var(--blue); box-shadow:0 0 0 3px rgba(56,189,248,.12); }
     .button { display:inline-flex; align-items:center; justify-content:center; gap:9px; min-height:42px; padding:10px 15px; border-radius:11px; color:#04131c; background:linear-gradient(135deg,#67e8f9,#38bdf8); font-weight:750; font-size:13px; box-shadow:0 7px 20px rgba(14,165,233,.14); }
     .button:hover:not(:disabled) { background:linear-gradient(135deg,#a5f3fc,#38bdf8); }
     .button.secondary { color:#dce7f4; background:#202f45; box-shadow:none; border:1px solid #34465f; }
@@ -160,18 +160,27 @@
           <section class="panel card">
             <div class="card-head"><div><h3>Class setup</h3><p class="muted">Create a time-limited attendance session.</p></div><div class="icon-badge" aria-hidden="true">▦</div></div>
             <div class="form-grid">
-              <label class="field">Course code<input id="course" value="CS101" autocomplete="off" placeholder="e.g. CS101"></label>
-              <label class="field">Class title<input id="title" value="Algorithms" autocomplete="off" placeholder="e.g. Algorithms · Week 4"></label>
+              <label class="field">Course<select id="course"><option value="">Upload a course list first</option></select></label>
+              <label class="field">Session type<select id="class-type"><option value="class">Class</option><option value="lab">Lab</option><option value="tutorial">Tutorial</option></select></label>
+              <label class="field">Duration (hours)<input id="duration" type="number" min="0.25" max="12" step="0.25" value="1.5"></label>
             </div>
+            <p class="muted" style="margin:-5px 0 12px;font-size:11px">A successful check-in receives the full duration in the attendance sheet; absent students stay blank.</p>
             <div class="inline-actions"><button id="start" class="button" type="button">Start attendance session</button><button id="end" class="button danger" type="button" disabled>End session</button></div>
             <div id="admin-status" class="status" role="status" aria-live="polite"></div>
             <div class="divider"></div>
             <details>
+              <summary>Manage courses and Google Sheets</summary>
+              <p class="muted" style="margin:12px 0 0;font-size:11px">Upload a CSV with <code>course_name,web_app_url</code> columns. Each URL should be that course's Apps Script web app URL ending in <code>/exec</code>.</p>
+              <label class="field">Course list CSV<input id="courses-file" type="file" accept=".csv,text/csv"></label>
+              <div class="inline-actions"><button id="upload-courses" class="button secondary" type="button">Upload course list</button></div>
+              <div id="configured-courses" class="list-empty" style="margin-top:12px">No course links loaded.</div>
+            </details>
+            <div class="divider"></div>
+            <details>
               <summary>Import your student roster</summary>
-              <p class="muted" style="margin:12px 0 0;font-size:11px">CSV columns: <code>roll_no,full_name,course_code</code>. The course column is optional. Existing claimed identities are left as they are.</p>
+              <p class="muted" style="margin:12px 0 0;font-size:11px">CSV columns: <code>roll_no,full_name,course_code</code>. The course column is optional. Claimed identities stay unchanged; unused starter examples are removed when you import your official roster.</p>
               <label class="field" for="csv">Paste CSV data<textarea id="csv" placeholder="roll_no,full_name,course_code&#10;25BCS001,Student Name,CS101"></textarea></label>
-              <div class="inline-actions"><button id="import" class="button secondary" type="button">Import roster CSV</button><button id="mock" class="button secondary" type="button"><span class="demo-label">Demo</span> Add 100 mock students</button></div>
-              <p class="muted" style="margin:10px 0 0;font-size:10px">Mock names are clearly labeled and use rolls 25BCS001–25BCS100.</p>
+              <div class="inline-actions"><button id="import-google-roster" class="button secondary" type="button">Fetch roster from Google Sheets</button><button id="import" class="button secondary" type="button">Import roster CSV</button></div>
             </details>
           </section>
 
@@ -181,13 +190,15 @@
             <p class="muted" style="margin-bottom:5px;font-size:12px">Students scan the current code after passing the face check.</p>
             <div class="qr-stage"><div id="qrcode"><div class="qr-placeholder">Start an attendance session to display a rotating class QR code here.</div></div></div>
             <div id="token" class="token-line">No active session</div>
-            <div class="timer"><div class="timer-label"><span>Code refreshes every 2 seconds</span><span id="refresh-caption">Waiting</span></div><div class="timer-track"><div id="timer-fill" class="timer-fill" style="width:0"></div></div></div>
+            <div class="timer"><div class="timer-label"><span>Code refreshes every second</span><span id="refresh-caption">Waiting</span></div><div class="timer-track"><div id="timer-fill" class="timer-fill" style="width:0"></div></div></div>
           </section>
         </div>
 
         <div class="lower-grid">
           <section class="panel card">
             <div class="card-title-row"><div><h3>Today’s check-ins</h3><p class="muted" style="margin:0;font-size:11px">Students successfully recorded for this class.</p></div><span id="counter" class="count-pill">0 present</span></div>
+            <div class="inline-actions"><button id="export-csv" class="button secondary" type="button">Export selected course as CSV</button></div>
+            <div id="sheet-status" class="status" role="status" aria-live="polite"></div>
             <div id="roster" class="list"><div class="list-empty">Start a class session to see attendance here.</div></div>
           </section>
           <section class="panel card">
@@ -205,7 +216,10 @@
     let adminToken = '';
     let activeId = '';
     let poller = null;
+    let attendancePoller = null;
+    let tokenRefreshInFlight = false;
     let requestsPoller = null;
+    let sheetPoller = null;
     let qrIssuedAt = 0;
 
     async function api(path, options = {}) {
@@ -245,8 +259,11 @@
 
     function startPolling() {
       if (poller) clearInterval(poller);
+      if (attendancePoller) clearInterval(attendancePoller);
       refresh();
-      poller = setInterval(refresh, 900);
+      refreshAttendance();
+      poller = setInterval(refresh, 250);
+      attendancePoller = setInterval(refreshAttendance, 1500);
     }
 
     $('login').addEventListener('click', async () => {
@@ -263,7 +280,10 @@
         $('login-panel').classList.add('hidden');
         $('dashboard').classList.remove('hidden');
         $('logout').classList.remove('hidden');
-        await Promise.all([loadRequests(), loadSessions()]);
+        await loadCourses();
+        await Promise.all([loadRequests(), loadSessions(), loadSheetStatus()]);
+        if (sheetPoller) clearInterval(sheetPoller);
+        sheetPoller = setInterval(loadSheetStatus, 5000);
         if (requestsPoller) clearInterval(requestsPoller);
         requestsPoller = setInterval(loadRequests, 7000);
       } catch (error) {
@@ -278,9 +298,13 @@
     $('logout').addEventListener('click', () => {
       adminToken = '';
       if (poller) clearInterval(poller);
+      if (attendancePoller) clearInterval(attendancePoller);
       if (requestsPoller) clearInterval(requestsPoller);
+      if (sheetPoller) clearInterval(sheetPoller);
       poller = null;
+      attendancePoller = null;
       requestsPoller = null;
+      sheetPoller = null;
       activeId = '';
       $('password').value = '';
       $('dashboard').classList.add('hidden');
@@ -293,20 +317,23 @@
       const button = $('start');
       button.disabled = true;
       try {
-        const courseCode = $('course').value.trim().toUpperCase();
-        const title = $('title').value.trim();
+        const courseName = $('course').value.trim();
+        if (!courseName) throw new Error('Upload a course list and select a course first.');
+        const classType = $('class-type').value;
+        const durationHours = Number($('duration').value);
         const result = await api('/api/admin/sessions', {
           method: 'POST',
-          body: JSON.stringify({ courseCode, title }),
+          body: JSON.stringify({ courseName, classType, durationHours }),
         });
         activeId = result.id;
-        $('class-heading').textContent = `${courseCode} · ${title}`;
+        $('class-heading').textContent = `${courseName} · ${classType}`;
         $('end').disabled = false;
         $('session-status').lastElementChild.textContent = 'Class in progress';
         $('qr-state').textContent = 'Live class code';
         $('roster').innerHTML = '<div class="list-empty">Waiting for the first student check-in.</div>';
         $('counter').textContent = '0 present';
         showStatus($('admin-status'), 'Session started. The class QR is ready to scan.');
+        showStatus($('sheet-status'), 'Session saved locally. Google Sheets will update when you end the session.');
         startPolling();
       } catch (error) {
         showStatus($('admin-status'), error.message, true);
@@ -319,9 +346,11 @@
       if (!activeId) return;
       $('end').disabled = true;
       try {
-        await api(`/api/admin/sessions/${activeId}/end`, { method: 'POST', body: '{}' });
+        const result = await api(`/api/admin/sessions/${activeId}/end`, { method: 'POST', body: '{}' });
         if (poller) clearInterval(poller);
+        if (attendancePoller) clearInterval(attendancePoller);
         poller = null;
+        attendancePoller = null;
         activeId = '';
         $('qr-state').textContent = 'Session ended';
         $('token').textContent = 'This class session has ended.';
@@ -330,6 +359,9 @@
         $('refresh-caption').textContent = 'Ended';
         $('session-status').lastElementChild.textContent = 'Session complete';
         showStatus($('admin-status'), 'Class session ended. Attendance is saved on this laptop.');
+        showStatus($('sheet-status'), result.sheetSyncQueued
+          ? 'Session ended. Sending its attendance to Google Sheets once.'
+          : 'Session ended. Attendance is saved locally; Google Sheets is not configured.');
       } catch (error) {
         $('end').disabled = false;
         showStatus($('admin-status'), error.message, true);
@@ -345,12 +377,82 @@
       } catch (error) { showStatus($('admin-status'), error.message, true); }
     });
 
-    $('mock').addEventListener('click', async () => {
-      const button = $('mock');
+    $('import-google-roster').addEventListener('click', async () => {
+      const button = $('import-google-roster');
       button.disabled = true;
       try {
-        const result = await api('/api/admin/roster/mock', { method: 'POST', body: '{}' });
-        showStatus($('admin-status'), `Demo roster ready · ${result.firstRollNo} to ${result.lastRollNo} (Mock Student 001–100).`);
+        const courseName = $('course').value;
+        if (!courseName) throw new Error('Select a course first.');
+        const result = await api('/api/admin/roster/google', { method: 'POST', body: JSON.stringify({ courseName }) });
+        showStatus($('admin-status'), `Google Sheets roster loaded · ${result.imported} students added or updated.`);
+      } catch (error) { showStatus($('admin-status'), error.message, true); }
+      finally { button.disabled = false; }
+    });
+
+    $('upload-courses').addEventListener('click', async () => {
+      const file = $('courses-file').files[0];
+      if (!file) {
+        showStatus($('admin-status'), 'Choose a CSV course list first.', true);
+        return;
+      }
+      const button = $('upload-courses');
+      button.disabled = true;
+      try {
+        const csv = await file.text();
+        const result = await api('/api/admin/courses/import', {
+          method: 'POST', body: JSON.stringify({ csv }),
+        });
+        await loadCourses();
+        showStatus($('admin-status'), `${result.imported} course link(s) loaded. Select a course to start a session.`);
+      } catch (error) { showStatus($('admin-status'), error.message, true); }
+      finally { button.disabled = false; }
+    });
+
+    async function loadCourses() {
+      try {
+        const courses = await api('/api/admin/courses');
+        const select = $('course');
+        const selected = select.value;
+        select.replaceChildren(new Option(courses.length ? 'Select a course' : 'Upload a course list first', ''));
+        courses.forEach((course) => select.add(new Option(course.courseName, course.courseName)));
+        if (courses.some((course) => course.courseName === selected)) select.value = selected;
+        $('configured-courses').innerHTML = courses.length
+          ? courses.map((course) => `<div class="list-item"><div class="person"><div class="person-copy"><strong>${escapeHtml(course.courseName)}</strong><span>${escapeHtml(course.webAppUrl)}</span></div></div></div>`).join('')
+          : 'No course links loaded.';
+      } catch (error) {
+        $('configured-courses').textContent = error.message;
+      }
+    }
+
+    async function loadSheetStatus() {
+      try {
+        const status = await api('/api/admin/sheets/status');
+        showStatus($('sheet-status'), status.configured
+          ? (status.pendingSessions ? (status.lastError || `${status.pendingSessions} ended session(s) are waiting for a Google Sheets update.`) : 'Check-ins stay on this laptop until you end the session; then one update is sent to Google Sheets.')
+          : 'Google Sheets is not configured yet. See README.md for one-time setup.');
+      } catch (error) { showStatus($('sheet-status'), error.message, true); }
+    }
+
+    $('export-csv').addEventListener('click', async () => {
+      const button = $('export-csv');
+      button.disabled = true;
+      try {
+        const courseName = $('course').value;
+        if (!courseName) throw new Error('Select a course before exporting attendance.');
+        const response = await fetch(`/api/admin/attendance.csv?courseName=${encodeURIComponent(courseName)}`, {
+          headers: { Authorization: `Bearer ${adminToken}` }, cache: 'no-store',
+        });
+        if (!response.ok) {
+          const result = await response.json().catch(() => ({}));
+          throw new Error(result.error || `Export failed (${response.status}).`);
+        }
+        const blob = await response.blob();
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = `attendance_${new Date().toISOString().slice(0, 10)}.csv`;
+        link.click();
+        setTimeout(() => URL.revokeObjectURL(url), 1000);
       } catch (error) { showStatus($('admin-status'), error.message, true); }
       finally { button.disabled = false; }
     });
@@ -372,18 +474,31 @@
     }
 
     async function refresh() {
-      if (!activeId) return;
+      if (!activeId || tokenRefreshInFlight) return;
+      tokenRefreshInFlight = true;
+      const requestedSessionId = activeId;
       try {
-        const [payload, rows] = await Promise.all([
-          api(`/api/sessions/${activeId}/token`),
-          api(`/api/sessions/${activeId}/attendance`),
-        ]);
+        const payload = await api(`/api/sessions/${requestedSessionId}/token`);
+        if (requestedSessionId !== activeId) return;
         const value = JSON.stringify({
           session: payload.session, nonce: payload.nonce,
           ts: payload.ts, sessionId: payload.sessionId,
         });
         renderQr(value);
         $('token').textContent = value;
+        setConnection(true);
+      } catch (error) {
+        showStatus($('admin-status'), error.message, true);
+        setConnection(!error.message.includes('Could not reach the laptop server'));
+      } finally {
+        tokenRefreshInFlight = false;
+      }
+    }
+
+    async function refreshAttendance() {
+      if (!activeId) return;
+      try {
+        const rows = await api(`/api/sessions/${activeId}/attendance`);
         $('counter').textContent = `${rows.length} present`;
         $('roster').innerHTML = rows.length
           ? rows.map((row) => `<div class="list-item"><div class="person"><div class="avatar">${escapeHtml(row.roll_no.slice(-3))}</div><div class="person-copy"><strong>${escapeHtml(row.full_name)}</strong><span>${escapeHtml(row.roll_no)}</span></div></div><div style="display:flex;align-items:center;gap:10px"><span class="time">${new Date(row.checked_in_at).toLocaleTimeString()}</span><span class="check-mark" aria-label="Present">✓</span></div></div>`).join('')
@@ -407,11 +522,13 @@
         $('requests').innerHTML = requests.length
           ? requests.map((request) => {
               const changes = [
+                request.reset_registration ? 'Reset registration and remove face enrollment' : '',
                 request.requested_roll_no ? `Roll number · ${escapeHtml(request.requested_roll_no)}` : '',
                 request.requested_name ? `Name · ${escapeHtml(request.requested_name)}` : '',
                 request.embedding ? 'Face enrollment replacement' : '',
               ].filter(Boolean).join('<br>');
-              return `<article class="request-item"><div class="person"><div class="avatar">ID</div><div class="person-copy"><strong>${escapeHtml(request.full_name)}</strong><span>${escapeHtml(request.roll_no)}</span></div></div><div class="request-changes">${changes}</div><p class="request-reason">Reason: ${escapeHtml(request.reason)}</p><div class="request-actions"><button class="button danger" data-review="reject" data-id="${request.id}">Reject</button><button class="button secondary" data-review="approve" data-id="${request.id}">Approve change</button></div></article>`;
+              const approvalLabel = request.reset_registration ? 'Approve reset' : 'Approve change';
+              return `<article class="request-item"><div class="person"><div class="avatar">ID</div><div class="person-copy"><strong>${escapeHtml(request.full_name)}</strong><span>${escapeHtml(request.roll_no)}</span></div></div><div class="request-changes">${changes}</div><p class="request-reason">Reason: ${escapeHtml(request.reason)}</p><div class="request-actions"><button class="button danger" data-review="reject" data-id="${request.id}">Reject</button><button class="button secondary" data-review="approve" data-id="${request.id}">${approvalLabel}</button></div></article>`;
             }).join('')
           : '<div class="list-empty">No pending identity changes. Student identity stays locked until an approved request is applied.</div>';
       } catch (error) { $('requests').innerHTML = `<div class="list-empty">${escapeHtml(error.message)}</div>`; }
@@ -439,9 +556,13 @@
         const running = sessions.find((session) => !session.ended_at);
         if (running) {
           activeId = running.id;
+          if (![...$('course').options].some((option) => option.value === running.course_code)) {
+            $('course').add(new Option(running.course_code, running.course_code));
+          }
           $('course').value = running.course_code;
-          $('title').value = running.title;
-          $('class-heading').textContent = `${running.course_code} · ${running.title}`;
+          $('class-type').value = running.session_type || 'class';
+          $('duration').value = running.duration_hours || 1.5;
+          $('class-heading').textContent = `${running.course_code} · ${(running.session_type || 'class')}`;
           $('end').disabled = false;
           $('session-status').lastElementChild.textContent = 'Class in progress';
           $('qr-state').textContent = 'Live class code';
@@ -453,9 +574,9 @@
     setInterval(() => {
       if (!activeId || !qrIssuedAt) return;
       const elapsed = Math.max(0, Date.now() - qrIssuedAt);
-      const progress = Math.max(0, 100 - elapsed / 20);
+      const progress = Math.max(0, 100 - elapsed / 10);
       $('timer-fill').style.width = `${progress}%`;
-      $('refresh-caption').textContent = `${Math.max(0, 2 - elapsed / 1000).toFixed(1)}s`;
+      $('refresh-caption').textContent = `${Math.max(0, 1 - elapsed / 1000).toFixed(1)}s`;
     }, 100);
 
     $('login-status').textContent = 'Open this dashboard at http://localhost:8765 on the lecturer laptop. The API is served by the Python server, not by GitHub Pages.';
