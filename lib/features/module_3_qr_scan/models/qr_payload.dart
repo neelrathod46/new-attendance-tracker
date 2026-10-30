@@ -148,8 +148,8 @@ class QrPayload {
         );
       }
 
-      // Attendance must reach the lecturer server within one second of issue.
-      if (ageMs > 1000) {
+      // Match the server's 3-second QR lifetime.
+      if (ageMs > 3000) {
         final ageSec = (ageMs / 1000.0).toStringAsFixed(1);
         return QrPayload(
           session: session,
@@ -163,7 +163,7 @@ class QrPayload {
         );
       }
 
-      // Valid token (0 <= ageMs <= 1000)
+      // Valid token (0 <= ageMs <= 3000)
       final ageDisplay = ageMs >= 1000
           ? '${(ageMs / 1000.0).toStringAsFixed(1)}s'
           : '${ageMs < 0 ? 0 : ageMs}ms';

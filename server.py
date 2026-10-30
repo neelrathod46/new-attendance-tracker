@@ -25,7 +25,7 @@ ROOT = Path(__file__).resolve().parent
 DB_PATH = Path(os.environ.get("ATTENDANCE_DB", ROOT / "data" / "attendance.sqlite3"))
 ADMIN_PASSWORD = "hello"
 MATCH_LIMIT = 0.90
-QR_LIFETIME_MS = 1000
+QR_LIFETIME_MS = 3000
 tokens: dict[str, tuple[str, str]] = {}
 active_sessions: dict[str, dict] = {}
 sheet_queue_lock = threading.Lock()
@@ -333,7 +333,7 @@ class Handler(BaseHTTPRequestHandler):
             if not current:
                 return self.send_json(404, {"error": "Class session is not active."})
             now = int(time.time() * 1000)
-            if now - current["ts"] >= 1000:
+            if now - current["ts"] >= QR_LIFETIME_MS:
                 current["nonce"] = secrets.randbelow(900_000) + 100_000
                 current["ts"] = now
             return self.send_json(200, {"session": current["course"], "sessionId": session_id,
