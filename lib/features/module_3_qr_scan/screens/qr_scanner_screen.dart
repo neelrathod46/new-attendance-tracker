@@ -7,6 +7,7 @@ import 'package:mobile_scanner/mobile_scanner.dart';
 
 import '../../module_1_auth/models/student_session.dart';
 import '../../module_1_auth/services/local_attendance_api.dart';
+import '../../module_1_auth/services/student_profile_store.dart';
 import '../models/face_verification_result.dart';
 import '../models/qr_payload.dart';
 import '../widgets/scanner_overlay.dart';
@@ -36,6 +37,7 @@ class QrScannerScreen extends StatefulWidget {
 
 class _QrScannerScreenState extends State<QrScannerScreen> {
   MobileScannerController? _scannerController;
+  Timer? _expiryTimer;
   bool _gateOpen = false;
   final Set<int> _usedNonces = {};
   int? _latestAcceptedTs;
@@ -63,6 +65,19 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
         facing: _currentFacing,
         torchEnabled: false,
       );
+      final remaining =
+          FaceVerificationResult.maxAgeMs -
+          (DateTime.now().millisecondsSinceEpoch - verification.verifiedAtMs);
+      _expiryTimer = Timer(
+        Duration(
+          milliseconds: remaining
+              .clamp(1, FaceVerificationResult.maxAgeMs)
+              .toInt(),
+        ),
+        () {
+          if (mounted) Navigator.of(context).pop(false);
+        },
+      );
     } else {
       _gateOpen = false;
       print(
@@ -76,6 +91,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
   void dispose() {
     print('[QR_SCAN] Disposing MobileScannerController...');
     _scannerController?.dispose();
+    _expiryTimer?.cancel();
     super.dispose();
   }
 
@@ -149,7 +165,9 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       _isProcessing = payload.isValid;
     });
     if (payload.isValid) {
-      print('[QR_SCAN] Valid QR detected; submitting attendance automatically.');
+      print(
+        '[QR_SCAN] Valid QR detected; submitting attendance automatically.',
+      );
       unawaited(_submitAttendance(payload));
     }
   }
@@ -192,8 +210,22 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       print(
         '[QR_SCAN] Sending token and verified embedding to lecturer LAN server.',
       );
+      final decodedQr = jsonDecode(payload.rawJson) as Map<String, dynamic>;
+      final qrServerUrl = decodedQr['serverUrl']?.toString();
+      final serverUrl = (qrServerUrl != null && qrServerUrl.isNotEmpty)
+          ? qrServerUrl
+          : session.serverUrl;
+      if (serverUrl.isEmpty) {
+        throw const FormatException(
+          'Lecturer address is missing from this QR.',
+        );
+      }
+      session.serverUrl = serverUrl;
+      await StudentProfileStore.save(session);
       await LocalAttendanceApi.submitCheckIn(
-        token: session.sessionToken,
+        rollNo: session.studentId,
+        token: session.sessionToken.isEmpty ? null : session.sessionToken,
+        serverUrl: serverUrl,
         sessionId: payload.sessionId,
         courseCode: payload.session,
         nonce: payload.nonce,
@@ -207,7 +239,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(content: Text('Attendance recorded for this class.')),
       );
-      Navigator.of(context).popUntil((route) => route.isFirst);
+      Navigator.of(context).pop(true);
     } catch (error) {
       print('[QR_SCAN] Attendance submission rejected: $error');
       if (!mounted) return;
@@ -302,7 +334,7 @@ class _QrScannerScreenState extends State<QrScannerScreen> {
               ),
             ),
             Text(
-              'Face verified · code expires in 1 second',
+              'Face check valid for 1 minute · QR expires in 1 second',
               style: TextStyle(
                 fontSize: 11,
                 color: const Color(0xFF38BDF8).withOpacity(0.9),

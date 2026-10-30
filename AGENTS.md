@@ -25,8 +25,8 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 
 1. Module 4 liveness runs before Module 5 face verification.
 2. Enrollment and matching use `assets/mobile_face_net.tflite` (192 values). The student camera capture is processed on device; send only the embedding to the laptop server.
-3. Module 3 QR scanner is available only after a fresh successful face match (Euclidean distance <= 0.90).
-4. Attendance submissions include the QR token and current face embedding. `server.py` checks the current nonce, one-second token age, one check-in per student/session, and the embedding match again before writing a row. A valid scan submits automatically.
+3. Module 3 QR scanner is available only after a fresh successful face match (Euclidean distance <= 0.90); that verification expires after one minute.
+4. Attendance submissions include the QR token, student roll number, and current face embedding. `server.py` checks the current nonce, one-second token age, one check-in per student/session, and the embedding match again before writing a row. A valid scan submits automatically. The QR includes the lecturer server URL so students do not type it.
 5. Local client checks are for experience; server checks decide whether attendance is recorded. Keep the lecturer service on a trusted private network. It currently uses HTTP and is not for internet exposure.
 
 ## Product and code conventions
@@ -40,6 +40,7 @@ Student attendance system: Flutter Android student app plus a lecturer dashboard
 
 - Lecturer dashboard serves its bundled QRCode.js renderer from `assets/qrcode.min.js`; `assets/QRCODEJS_LICENSE.txt` contains its MIT license. QR rendering itself works without internet.
 - Tokens use the lecturer laptop's clock. Student devices with substantially incorrect clocks may reject a QR before server submission.
+- Returning student profiles and face embeddings are stored encrypted with Android Keystore. The dashboard's static QR supports first-time registration, and the rotating class QR carries the same server address for check-in.
 - SQLite is stored on the lecturer laptop and has no automatic remote backup or multi-lecturer synchronization.
 - Course rosters are imported and a lecturer starts a course session manually; the server does not yet enforce per-course enrollment membership.
 - A first-time roster claim proves the submitted name/roll pair matches an unclaimed row, but not that the claimant is the student. Recommend in-person verification or a private one-time enrollment code for stronger initial identity assurance.

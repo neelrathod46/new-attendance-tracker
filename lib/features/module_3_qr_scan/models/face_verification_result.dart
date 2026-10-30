@@ -7,7 +7,7 @@ class FaceVerificationResult {
   static const double matchThreshold = 0.90;
 
   /// How long a verification result stays usable before the student must redo it.
-  static const int maxAgeMs = 5 * 60 * 1000;
+  static const int maxAgeMs = 60 * 1000;
 
   final bool livenessPassed;
   final bool identityMatched;

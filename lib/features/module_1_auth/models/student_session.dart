@@ -6,7 +6,8 @@ class StudentSession {
   final String displayName;
   final String role;
   final String deviceId;
-  final String sessionToken;
+  String sessionToken;
+  String serverUrl;
   final bool offline;
   final bool isAdmin;
   final bool hasStudentIdentity;
@@ -17,6 +18,7 @@ class StudentSession {
     this.displayName = '',
     required this.deviceId,
     required this.sessionToken,
+    this.serverUrl = '',
     this.role = 'student',
     this.offline = true,
     this.isAdmin = false,
@@ -48,16 +50,17 @@ class StudentSession {
     required bool isAdmin,
     bool hasStudentIdentity = true,
     EnrollmentProfile? enrollment,
-  }) =>
-      StudentSession(
-        studentId: studentId,
-        displayName: displayName,
-        deviceId: deviceId,
-        sessionToken: accessToken,
-        role: isAdmin ? 'admin' : 'student',
-        isAdmin: isAdmin,
-        hasStudentIdentity: hasStudentIdentity,
-        offline: false,
-        enrollment: enrollment,
-      );
+    String serverUrl = '',
+  }) => StudentSession(
+    studentId: studentId,
+    displayName: displayName,
+    deviceId: deviceId,
+    sessionToken: accessToken,
+    serverUrl: serverUrl,
+    role: isAdmin ? 'admin' : 'student',
+    isAdmin: isAdmin,
+    hasStudentIdentity: hasStudentIdentity,
+    offline: false,
+    enrollment: enrollment,
+  );
 }

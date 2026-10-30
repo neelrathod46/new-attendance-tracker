@@ -185,11 +185,11 @@
           </section>
 
           <section class="panel card projector-card">
-            <div class="live-pill"><span class="dot"></span><span id="qr-state">Waiting for class</span></div>
-            <h3 id="class-heading" class="projector-title">Your live class code</h3>
-            <p class="muted" style="margin-bottom:5px;font-size:12px">Students scan the current code after passing the face check.</p>
-            <div class="qr-stage"><div id="qrcode"><div class="qr-placeholder">Start an attendance session to display a rotating class QR code here.</div></div></div>
-            <div id="token" class="token-line">No active session</div>
+            <div class="live-pill"><span class="dot"></span><span id="qr-state">Ready to register</span></div>
+            <h3 id="class-heading" class="projector-title">Student registration QR</h3>
+            <p id="qr-instructions" class="muted" style="margin-bottom:5px;font-size:12px">New students scan this code to connect and register. During class, the rotating code is used for attendance.</p>
+            <div class="qr-stage"><div id="qrcode"><div class="qr-placeholder">Loading the lecturer server address…</div></div></div>
+            <div id="token" class="token-line">New students: open the app and choose First-time registration.</div>
             <div class="timer"><div class="timer-label"><span>Code refreshes every second</span><span id="refresh-caption">Waiting</span></div><div class="timer-track"><div id="timer-fill" class="timer-fill" style="width:0"></div></div></div>
           </section>
         </div>
@@ -218,6 +218,7 @@
     let poller = null;
     let attendancePoller = null;
     let tokenRefreshInFlight = false;
+    let lecturerServerUrl = '';
     let requestsPoller = null;
     let sheetPoller = null;
     let qrIssuedAt = 0;
@@ -330,6 +331,7 @@
         $('end').disabled = false;
         $('session-status').lastElementChild.textContent = 'Class in progress';
         $('qr-state').textContent = 'Live class code';
+        $('qr-instructions').textContent = 'Students who have registered: verify your face in the app, then scan this rotating code to check in.';
         $('roster').innerHTML = '<div class="list-empty">Waiting for the first student check-in.</div>';
         $('counter').textContent = '0 present';
         showStatus($('admin-status'), 'Session started. The class QR is ready to scan.');
@@ -352,9 +354,11 @@
         poller = null;
         attendancePoller = null;
         activeId = '';
-        $('qr-state').textContent = 'Session ended';
-        $('token').textContent = 'This class session has ended.';
-        $('qrcode').innerHTML = '<div class="qr-placeholder">The session is closed. Start another class to generate a new code.</div>';
+        $('qr-state').textContent = 'Ready to register';
+        $('class-heading').textContent = 'Student registration QR';
+        $('qr-instructions').textContent = 'New students scan this code to connect and register. During class, the rotating code is used for attendance.';
+        $('token').textContent = 'New students: open the app and choose First-time registration.';
+        renderRegistrationQr();
         $('timer-fill').style.width = '0';
         $('refresh-caption').textContent = 'Ended';
         $('session-status').lastElementChild.textContent = 'Session complete';
@@ -473,6 +477,23 @@
       qrIssuedAt = Date.now();
     }
 
+    function renderRegistrationQr() {
+      if (!lecturerServerUrl) {
+        $('qrcode').innerHTML = '<div class="qr-placeholder">Could not detect the laptop Wi-Fi address. Restart the lecturer server on its Wi-Fi network.</div>';
+        return;
+      }
+      const value = JSON.stringify({ type: 'attendance-server', serverUrl: lecturerServerUrl });
+      if ($('qrcode').dataset.last === value) return;
+      $('qrcode').replaceChildren();
+      new QRCode($('qrcode'), {
+        text: value, width: 280, height: 280,
+        colorDark: '#07111d', colorLight: '#ffffff',
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+      $('qrcode').dataset.last = value;
+      $('refresh-caption').textContent = 'Ready';
+    }
+
     async function refresh() {
       if (!activeId || tokenRefreshInFlight) return;
       tokenRefreshInFlight = true;
@@ -483,6 +504,7 @@
         const value = JSON.stringify({
           session: payload.session, nonce: payload.nonce,
           ts: payload.ts, sessionId: payload.sessionId,
+          serverUrl: payload.serverUrl || lecturerServerUrl,
         });
         renderQr(value);
         $('token').textContent = value;
@@ -522,12 +544,11 @@
         $('requests').innerHTML = requests.length
           ? requests.map((request) => {
               const changes = [
-                request.reset_registration ? 'Reset registration and remove face enrollment' : '',
                 request.requested_roll_no ? `Roll number · ${escapeHtml(request.requested_roll_no)}` : '',
                 request.requested_name ? `Name · ${escapeHtml(request.requested_name)}` : '',
                 request.embedding ? 'Face enrollment replacement' : '',
               ].filter(Boolean).join('<br>');
-              const approvalLabel = request.reset_registration ? 'Approve reset' : 'Approve change';
+              const approvalLabel = 'Approve request';
               return `<article class="request-item"><div class="person"><div class="avatar">ID</div><div class="person-copy"><strong>${escapeHtml(request.full_name)}</strong><span>${escapeHtml(request.roll_no)}</span></div></div><div class="request-changes">${changes}</div><p class="request-reason">Reason: ${escapeHtml(request.reason)}</p><div class="request-actions"><button class="button danger" data-review="reject" data-id="${request.id}">Reject</button><button class="button secondary" data-review="approve" data-id="${request.id}">${approvalLabel}</button></div></article>`;
             }).join('')
           : '<div class="list-empty">No pending identity changes. Student identity stays locked until an approved request is applied.</div>';
@@ -566,6 +587,7 @@
           $('end').disabled = false;
           $('session-status').lastElementChild.textContent = 'Class in progress';
           $('qr-state').textContent = 'Live class code';
+          $('qr-instructions').textContent = 'Registered students: verify your face in the app, then scan the rotating code to check in.';
           startPolling();
         }
       } catch (error) { showStatus($('admin-status'), error.message, true); }
@@ -580,7 +602,9 @@
     }, 100);
 
     $('login-status').textContent = 'Open this dashboard at http://localhost:8765 on the lecturer laptop. The API is served by the Python server, not by GitHub Pages.';
-    api('/api/health').then(() => {
+    api('/api/health').then((health) => {
+      lecturerServerUrl = health.serverUrl || '';
+      renderRegistrationQr();
       setConnection(true);
       $('login-status').textContent = 'Local server ready. Sign in to prepare your class.';
     }).catch((error) => {

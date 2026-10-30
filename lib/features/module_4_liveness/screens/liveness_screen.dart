@@ -264,9 +264,13 @@ class _LivenessScreenState extends State<LivenessScreen> {
       final nextScreen = _isEnroll
           ? EnrollmentReviewScreen(session: widget.session, liveness: result)
           : FaceVerificationScreen(session: widget.session, liveness: result);
-      await Navigator.of(context)
-          .push(MaterialPageRoute<void>(builder: (_) => nextScreen));
+      final completed = await Navigator.of(context)
+          .push<bool>(MaterialPageRoute<bool>(builder: (_) => nextScreen));
       if (!mounted) return;
+      if (completed == true && !_isEnroll) {
+        Navigator.of(context).pop(true);
+        return;
+      }
       _finishing = false;
       await _initializeCamera();
     } catch (error) {

@@ -26,8 +26,8 @@ Python 3.10 or newer is required; the server uses only Python's standard library
 
    From a phone on that Wi-Fi, open `http://<laptop-ip>:8765/api/health` in its browser, replacing `<laptop-ip>` with that address. It should show a small JSON response containing `"ok":true`.
 
-7. Open the attendance app on each student phone. In **Lecturer laptop server address**, enter the Wi-Fi URL printed in the lecturer terminal, without `/api/health` (for example `http://192.168.1.20:8765`). APKs for physical phones do not assume an emulator address. Then enter the student's exact roster name and roll number and choose **Register / claim roster identity**. A returning student uses **Sign in** with the same name and roll number.
-8. Complete **Enroll face** once. For check-in, complete the liveness/face verification flow and scan the currently displayed QR. The app submits attendance automatically as soon as it reads a valid QR. The server confirms the embedding and one-second token before adding the student to the lecturer's live roster.
+7. Open the student app. First-time students enter their exact roster name and roll number, then tap **Scan lecturer QR and register**. Scan the registration QR on the dashboard; the QR supplies the laptop's Wi-Fi address. A returning student's saved profile opens directly and shows their name and roll number.
+8. Complete **Enroll my face** once. To check in, tap **Verify and check in**, pass liveness and face matching, then scan the live projector QR within one minute. The app reads the server address from the QR and submits automatically. The server confirms the embedding and one-second QR token before recording attendance.
 9. At the end of class, choose **End session**. Keep the server terminal and laptop running until everyone has checked in.
 
 ## Google Sheets attendance
@@ -49,7 +49,7 @@ Attendance always saves to the laptop's SQLite database first. Google Sheets is 
 
 If you edit an Apps Script later, update its deployment so the `/exec` URL serves the latest code, then keep that URL in the course CSV. Google Sheets sync needs internet on the lecturer laptop; QR check-in and local SQLite recording continue if Sheets is temporarily unavailable.
 
-The student app has a **Lecturer laptop server address** field, so you can enter the laptop IP there without rebuilding the APK. For development from a connected phone, you can also provide the address when launching the app:
+Students get the lecturer address by scanning the registration QR; they do not type an IP address. For development, you can still set a default server URL when launching the app:
 
    ```bash
    flutter run --dart-define=ATTENDANCE_SERVER_URL=http://192.168.1.20:8765

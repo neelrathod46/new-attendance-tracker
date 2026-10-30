@@ -96,8 +96,8 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
     } catch (_) {}
   }
 
-  void _openScanner(FaceVerificationResult result) {
-    Navigator.of(context).pushAndRemoveUntil(
+  Future<void> _openScanner(FaceVerificationResult result) async {
+    final checkedIn = await Navigator.of(context).push<bool>(
       MaterialPageRoute(
         builder: (_) => QrScannerScreen(
           verification: result,
@@ -105,8 +105,8 @@ class _FaceVerificationScreenState extends State<FaceVerificationScreen> {
           verificationEmbedding: _capturedEmbedding,
         ),
       ),
-      (route) => route.isFirst,
     );
+    if (checkedIn != null && mounted) Navigator.of(context).pop(checkedIn);
   }
 
   @override

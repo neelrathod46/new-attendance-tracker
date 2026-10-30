@@ -4,6 +4,7 @@ import '../../module_4_liveness/models/liveness_mode.dart';
 import '../../module_4_liveness/screens/liveness_screen.dart';
 import '../models/student_session.dart';
 import '../services/local_attendance_api.dart';
+import '../services/student_profile_store.dart';
 import 'auth_screen.dart';
 
 /// Post-login card: uid, role, device, offline token, enroll / check-in.
@@ -40,6 +41,7 @@ class _SessionScreenState extends State<SessionScreen> {
   }
 
   Future<void> _signOut() async {
+    await StudentProfileStore.clear();
     if (!mounted) return;
     Navigator.of(context).pushAndRemoveUntil(
       MaterialPageRoute(builder: (_) => const AuthScreen()),
@@ -192,7 +194,7 @@ class _SessionScreenState extends State<SessionScreen> {
         actions: [
           IconButton(
             onPressed: _signOut,
-            tooltip: 'Sign out',
+            tooltip: 'Switch student on this phone',
             icon: const Icon(Icons.logout_rounded),
           ),
         ],
@@ -224,7 +226,7 @@ class _SessionScreenState extends State<SessionScreen> {
                 ),
                 const SizedBox(height: 6),
                 const Text(
-                  'Your identity and face enrollment are managed for this college.',
+                  'Your registered name and roll number are shown below. Verify your face to open a one-minute attendance window.',
                   style: TextStyle(color: Color(0xFF94A3B8), height: 1.4),
                 ),
                 const SizedBox(height: 20),

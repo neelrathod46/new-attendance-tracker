@@ -247,6 +247,34 @@ def queue_google_sheet_sync(session_id):
 class Handler(BaseHTTPRequestHandler):
     server_version = "AttendanceLAN/1.0"
 
+    def accessible_server_url(self):
+        host_header = self.headers.get("Host", "")
+        host = host_header.rsplit(":", 1)[0].strip("[]") if ":" in host_header else host_header
+        if host and host not in ("localhost", "127.0.0.1", "0.0.0.0") and not host.startswith("127."):
+            return f"http://{host_header}"
+        address = ""
+        try:
+            probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            try:
+                probe.connect(("192.0.2.1", 80))
+                address = probe.getsockname()[0]
+            finally:
+                probe.close()
+        except OSError:
+            pass
+        if not address or address.startswith("127."):
+            try:
+                address = next(
+                    result[4][0]
+                    for result in socket.getaddrinfo(socket.gethostname(), None, socket.AF_INET)
+                    if not result[4][0].startswith("127.")
+                )
+            except (OSError, StopIteration):
+                address = ""
+        if address:
+            return f"http://{address}:{self.server.server_address[1]}"
+        return ""
+
     def log_message(self, fmt, *args):
         print("[HTTP] " + fmt % args)
 
@@ -290,6 +318,7 @@ class Handler(BaseHTTPRequestHandler):
                 "ok": True,
                 "serverTime": int(time.time() * 1000),
                 "server": "AttendanceLAN/1.0",
+                "serverUrl": self.accessible_server_url(),
             })
         if path == "/api/admin/requests":
             self.require_token("admin")
@@ -308,7 +337,8 @@ class Handler(BaseHTTPRequestHandler):
                 current["nonce"] = secrets.randbelow(900_000) + 100_000
                 current["ts"] = now
             return self.send_json(200, {"session": current["course"], "sessionId": session_id,
-                                        "nonce": current["nonce"], "ts": current["ts"]})
+                                        "nonce": current["nonce"], "ts": current["ts"],
+                                        "serverUrl": self.accessible_server_url()})
         if path.startswith("/api/sessions/") and path.endswith("/attendance"):
             session_id = path.split("/")[3]
             with connect() as db:
@@ -582,14 +612,6 @@ class Handler(BaseHTTPRequestHandler):
                             if not target_roster:
                                 return self.send_json(409, {"error": "The requested roll number must exist in the imported college roster."})
                             if new_roll != old_roll:
-                                target_student = db.execute("SELECT 1 FROM students WHERE roll_no=?", (new_roll,)).fetchone()
-                                if target_roster["claimed"] or target_student:
-                                    return self.send_json(409, {"error": "The requested roll number is already claimed."})
-                                conflict = db.execute("""SELECT 1 FROM attendance old
-                                    JOIN attendance new ON new.session_id=old.session_id
-                                    WHERE old.roll_no=? AND new.roll_no=? LIMIT 1""", (old_roll, new_roll)).fetchone()
-                                if conflict:
-                                    return self.send_json(409, {"error": "Both roll numbers already have attendance in the same class; resolve that record before changing the identity."})
                                 revoked_rolls.add(new_roll)
                             new_name = req["requested_name"] or (target_roster["full_name"] if new_roll != old_roll else current["full_name"])
                             if req["embedding"]:
@@ -599,14 +621,11 @@ class Handler(BaseHTTPRequestHandler):
                                 db.execute("UPDATE students SET roll_no=?,full_name=? WHERE roll_no=?", (new_roll, new_name, old_roll))
                             db.execute("UPDATE roster SET claimed=1,full_name=? WHERE roll_no=?", (new_name, new_roll))
                             if new_roll != old_roll:
-                                db.execute("""INSERT OR IGNORE INTO course_roster(course_name,roll_no)
-                                    SELECT course_name,? FROM course_roster WHERE roll_no=?""", (new_roll, old_roll))
-                                db.execute("DELETE FROM course_roster WHERE roll_no=?", (old_roll,))
-                                db.execute("DELETE FROM roster WHERE roll_no=?", (old_roll,))
-                                db.execute("UPDATE attendance SET roll_no=?,full_name=? WHERE roll_no=?", (new_roll, new_name, old_roll))
+                                # Keep the old roster row claimed so the corrected
+                                # identity cannot be claimed again. Attendance rows
+                                # remain historical snapshots under their original
+                                # name and roll number.
                                 db.execute("UPDATE change_requests SET status='rejected' WHERE roll_no=? AND id<>? AND status='pending'", (old_roll, request_id))
-                            else:
-                                db.execute("UPDATE attendance SET full_name=? WHERE roll_no=?", (new_name, old_roll))
                             db.execute("INSERT INTO audit(roll_no,action,details,created_at) VALUES(?,?,?,?)",
                                 (new_roll, "identity_change_approved", str(request_id), int(time.time()*1000)))
                     db.execute("UPDATE change_requests SET status=? WHERE id=?", ("approved" if approve else "rejected", request_id))
@@ -628,12 +647,20 @@ class Handler(BaseHTTPRequestHandler):
                     "sheetSyncQueued": configured,
                 })
             if path == "/api/attendance/check-in":
-                _, roll = self.require_token("student")
+                supplied_token = self.headers.get("Authorization", "").removeprefix("Bearer ")
+                identity = tokens.get(supplied_token)
+                roll = str(data.get("rollNo", "")).strip().upper()
+                if not roll and identity and identity[0] == "student":
+                    roll = identity[1]
+                if not roll:
+                    return self.send_json(400, {"error": "Student roll number is missing from the check-in."})
                 token = data.get("qr", {})
                 session_id = str(token.get("sessionId", ""))
                 current = active_sessions.get(session_id)
                 now = int(time.time() * 1000)
-                if not current or token.get("nonce") != current["nonce"] or token.get("ts") != current["ts"] or now - current["ts"] < 0 or now - current["ts"] > QR_LIFETIME_MS:
+                if (not current or token.get("session") != current["course"]
+                        or token.get("nonce") != current["nonce"] or token.get("ts") != current["ts"]
+                        or now - current["ts"] < 0 or now - current["ts"] > QR_LIFETIME_MS):
                     return self.send_json(409, {"error": "QR code expired or was superseded. Scan the current projector code."})
                 vector = embedding_vector(data.get("embedding"))
                 with connect() as db:

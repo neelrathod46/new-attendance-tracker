@@ -33,6 +33,8 @@ class LocalAttendanceApi {
     _serverUrl = cleaned;
   }
 
+  static void setServerUrl(String value) => configureServer(value);
+
   static Future<Map<String, dynamic>> _request(
     String path, {
     String method = 'GET',
@@ -134,24 +136,30 @@ class LocalAttendanceApi {
       );
 
   static Future<Map<String, dynamic>> submitCheckIn({
-    required String token,
+    required String rollNo,
+    String? token,
+    String? serverUrl,
     required String sessionId,
     required String courseCode,
     required int nonce,
     required int timestamp,
     required List<double> embedding,
-  }) => _request(
-    '/api/attendance/check-in',
-    method: 'POST',
-    token: token,
-    body: {
-      'qr': {
-        'sessionId': sessionId,
-        'session': courseCode,
-        'nonce': nonce,
-        'ts': timestamp,
+  }) async {
+    if (serverUrl != null && serverUrl.isNotEmpty) configureServer(serverUrl);
+    return _request(
+      '/api/attendance/check-in',
+      method: 'POST',
+      token: token,
+      body: {
+        'rollNo': rollNo,
+        'qr': {
+          'sessionId': sessionId,
+          'session': courseCode,
+          'nonce': nonce,
+          'ts': timestamp,
+        },
+        'embedding': embedding,
       },
-      'embedding': embedding,
-    },
-  );
+    );
+  }
 }

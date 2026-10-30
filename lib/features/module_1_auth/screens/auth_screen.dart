@@ -5,6 +5,8 @@ import '../models/auth_validators.dart';
 import '../models/student_session.dart';
 import '../services/device_binding.dart';
 import '../services/local_attendance_api.dart';
+import '../services/student_profile_store.dart';
+import 'lecturer_qr_screen.dart';
 import 'session_screen.dart';
 
 class AuthScreen extends StatefulWidget {
@@ -17,28 +19,56 @@ class AuthScreen extends StatefulWidget {
 class _AuthScreenState extends State<AuthScreen> {
   final _name = TextEditingController();
   final _roll = TextEditingController();
-  final _serverUrl = TextEditingController(text: LocalAttendanceApi.baseUrl);
-  bool _registering = true;
   bool _busy = false;
   String? _notice;
   bool _error = false;
 
   @override
-  void dispose() {
-    _name.dispose();
-    _roll.dispose();
-    _serverUrl.dispose();
-    super.dispose();
+  void initState() {
+    super.initState();
+    _restoreProfile();
   }
 
-  Future<void> _connect() async {
+  Future<void> _restoreProfile() async {
+    try {
+      final session = await StudentProfileStore.load();
+      if (session == null || !mounted) return;
+      LocalAttendanceApi.configureServer(session.serverUrl);
+      // Session tokens live in server memory. Refresh after a server restart.
+      try {
+        final refreshed = await LocalAttendanceApi.claimStudent(
+          rollNo: session.studentId,
+          fullName: session.displayName,
+        );
+        session.sessionToken = refreshed['token'] as String;
+        final vector = refreshed['embedding'];
+        if (vector is List) {
+          session.enrollment = EnrollmentProfile(
+            studentId: session.studentId,
+            embedding: vector.map((v) => (v as num).toDouble()).toList(),
+          );
+        }
+        await StudentProfileStore.save(session);
+      } catch (error) {
+        print('[AUTH] Saved profile restored; server refresh deferred: $error');
+      }
+      if (!mounted) return;
+      await Navigator.of(context).pushReplacement(
+        MaterialPageRoute(builder: (_) => SessionScreen(session: session)),
+      );
+    } catch (error) {
+      print('[AUTH] Could not restore saved profile: $error');
+    }
+  }
+
+  Future<void> _register() async {
     final roll = _roll.text.trim().toUpperCase();
     final name = _name.text.trim();
-    final rollError = AuthValidators.studentId(roll);
-    if (rollError != null) return _show(rollError, error: true);
+    final validation = AuthValidators.studentId(roll);
+    if (validation != null) return _show(validation, error: true);
     if (name.length < 2) {
       return _show(
-        'Enter your name exactly as it appears in the college roster.',
+        'Enter your full name as it appears in the college roster.',
         error: true,
       );
     }
@@ -47,23 +77,25 @@ class _AuthScreenState extends State<AuthScreen> {
       _notice = null;
     });
     try {
-      LocalAttendanceApi.configureServer(_serverUrl.text);
-      print(
-        '[AUTH] Connecting to lecturer LAN server: ${LocalAttendanceApi.baseUrl}',
+      final serverUrl = await Navigator.of(context).push<String>(
+        MaterialPageRoute(builder: (_) => const LecturerQrScreen()),
       );
+      if (serverUrl == null || !mounted) return;
+      LocalAttendanceApi.configureServer(serverUrl);
       final result = await LocalAttendanceApi.claimStudent(
         rollNo: roll,
         fullName: name,
       );
-      final embeddingRaw = result['embedding'];
-      final embedding = embeddingRaw is List
-          ? embeddingRaw.map((value) => (value as num).toDouble()).toList()
+      final raw = result['embedding'];
+      final embedding = raw is List
+          ? raw.map((v) => (v as num).toDouble()).toList()
           : null;
       final session = StudentSession.online(
         studentId: result['rollNo'] as String,
         displayName: result['fullName'] as String,
         deviceId: await readDeviceId(),
         accessToken: result['token'] as String,
+        serverUrl: serverUrl,
         isAdmin: false,
         enrollment: embedding == null
             ? null
@@ -72,7 +104,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 embedding: embedding,
               ),
       );
-      print('[AUTH] LAN session ready for ${session.studentId}.');
+      await StudentProfileStore.save(session);
       if (!mounted) return;
       await Navigator.of(context).pushReplacement(
         MaterialPageRoute(builder: (_) => SessionScreen(session: session)),
@@ -94,88 +126,56 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _offlineDemo() async {
-    final error = AuthValidators.studentId(_roll.text);
-    if (error != null) return _show(error, error: true);
-    setState(() => _busy = true);
-    try {
-      final session = StudentSession.offline(
-        studentId: _roll.text,
-        deviceId: await readDeviceId(),
-      );
-      if (!mounted) return;
-      await Navigator.of(context).pushReplacement(
-        MaterialPageRoute(builder: (_) => SessionScreen(session: session)),
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
+    final validation = AuthValidators.studentId(_roll.text);
+    if (validation != null) return _show(validation, error: true);
+    final session = StudentSession.offline(
+      studentId: _roll.text,
+      deviceId: await readDeviceId(),
+    );
+    if (!mounted) return;
+    await Navigator.of(context).pushReplacement(
+      MaterialPageRoute(builder: (_) => SessionScreen(session: session)),
+    );
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _roll.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) => Scaffold(
-    appBar: AppBar(
-      title: const Row(
-        children: [
-          Icon(Icons.qr_code_2_rounded, color: Color(0xFF38BDF8)),
-          SizedBox(width: 10),
-          Text('Campus Check-in'),
-        ],
-      ),
-    ),
+    appBar: AppBar(title: const Text('Campus Check-in')),
     body: SafeArea(
       child: Center(
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 560),
           child: SingleChildScrollView(
-            padding: const EdgeInsets.fromLTRB(20, 14, 20, 30),
+            padding: const EdgeInsets.all(20),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Container(
-                  padding: const EdgeInsets.all(20),
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(20),
-                    gradient: const LinearGradient(
-                      colors: [Color(0xFF12334A), Color(0xFF17243A)],
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                    ),
-                    border: Border.all(color: const Color(0xFF28425A)),
-                  ),
-                  child: const Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        'STUDENT ATTENDANCE',
-                        style: TextStyle(
-                          color: Color(0xFF7DD3FC),
-                          fontSize: 10,
-                          letterSpacing: 1.4,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 9),
-                      Text(
-                        'Ready for class?',
-                        style: TextStyle(
-                          fontSize: 25,
-                          letterSpacing: -0.5,
-                          fontWeight: FontWeight.bold,
-                        ),
-                      ),
-                      SizedBox(height: 7),
-                      Text(
-                        'Connect to your lecturer, verify your identity, then scan the live class code.',
-                        style: TextStyle(
-                          color: Color(0xFFB8C7D9),
-                          height: 1.45,
-                          fontSize: 13,
-                        ),
-                      ),
-                    ],
-                  ),
+                const SizedBox(height: 22),
+                const Icon(
+                  Icons.school_rounded,
+                  size: 58,
+                  color: Color(0xFF38BDF8),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 14),
+                const Text(
+                  'Student attendance',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 25, fontWeight: FontWeight.bold),
+                ),
+                const SizedBox(height: 8),
+                const Text(
+                  'Register once with your college roster. Returning students can use the saved profile and verify their face before class.',
+                  textAlign: TextAlign.center,
+                  style: TextStyle(color: Color(0xFF94A3B8), height: 1.5),
+                ),
+                const SizedBox(height: 24),
                 Card(
                   child: Padding(
                     padding: const EdgeInsets.all(18),
@@ -183,15 +183,15 @@ class _AuthScreenState extends State<AuthScreen> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         const Text(
-                          'Connect to your class',
+                          'First-time registration',
                           style: TextStyle(
                             fontSize: 17,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        const SizedBox(height: 6),
                         const Text(
-                          'Use the same institute Wi-Fi as your lecturer.',
+                          'Enter your roster details, then scan the lecturer QR to connect.',
                           style: TextStyle(
                             color: Color(0xFF94A3B8),
                             fontSize: 12,
@@ -199,48 +199,11 @@ class _AuthScreenState extends State<AuthScreen> {
                         ),
                         const SizedBox(height: 16),
                         TextField(
-                          controller: _serverUrl,
-                          enabled: !_busy,
-                          keyboardType: TextInputType.url,
-                          autocorrect: false,
-                          decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.wifi_rounded),
-                            labelText: 'Lecturer server address',
-                            hintText: 'http://192.168.1.20:8765',
-                            helperText:
-                                'Use the Wi-Fi URL shown in the lecturer terminal. Do not use localhost or 10.0.2.2.',
-                          ),
-                        ),
-                        const SizedBox(height: 10),
-                        SegmentedButton<bool>(
-                          segments: const [
-                            ButtonSegment(
-                              value: true,
-                              label: Text('First time'),
-                              icon: Icon(Icons.person_add_alt_1),
-                            ),
-                            ButtonSegment(
-                              value: false,
-                              label: Text('Returning'),
-                              icon: Icon(Icons.login_rounded),
-                            ),
-                          ],
-                          selected: {_registering},
-                          onSelectionChanged: _busy
-                              ? null
-                              : (value) => setState(() {
-                                  _registering = value.single;
-                                  _notice = null;
-                                }),
-                        ),
-                        const SizedBox(height: 16),
-                        TextField(
                           controller: _name,
                           enabled: !_busy,
                           textCapitalization: TextCapitalization.words,
-                          textInputAction: TextInputAction.next,
                           decoration: const InputDecoration(
-                            prefixIcon: Icon(Icons.person_outline_rounded),
+                            prefixIcon: Icon(Icons.person_outline),
                             labelText: 'Full name from college roster',
                           ),
                         ),
@@ -249,58 +212,27 @@ class _AuthScreenState extends State<AuthScreen> {
                           controller: _roll,
                           enabled: !_busy,
                           textCapitalization: TextCapitalization.characters,
-                          textInputAction: TextInputAction.done,
-                          onSubmitted: (_) => _busy ? null : _connect(),
                           decoration: const InputDecoration(
                             prefixIcon: Icon(Icons.badge_outlined),
                             labelText: 'College roll number',
                             hintText: '25BCS001',
                           ),
                         ),
-                        if (_notice != null) ...[
-                          const SizedBox(height: 14),
-                          Container(
-                            padding: const EdgeInsets.all(12),
-                            decoration: BoxDecoration(
-                              color:
-                                  (_error
-                                          ? const Color(0xFFEF4444)
-                                          : const Color(0xFF38BDF8))
-                                      .withValues(alpha: 0.1),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Icon(
-                                  _error
-                                      ? Icons.error_outline_rounded
-                                      : Icons.info_outline_rounded,
-                                  size: 18,
-                                  color: _error
-                                      ? const Color(0xFFFB7185)
-                                      : const Color(0xFF38BDF8),
-                                ),
-                                const SizedBox(width: 9),
-                                Expanded(
-                                  child: Text(
-                                    _notice!,
-                                    style: TextStyle(
-                                      color: _error
-                                          ? const Color(0xFFFDA4AF)
-                                          : const Color(0xFF7DD3FC),
-                                      fontSize: 12,
-                                      height: 1.4,
-                                    ),
-                                  ),
-                                ),
-                              ],
+                        if (_notice != null)
+                          Padding(
+                            padding: const EdgeInsets.only(top: 12),
+                            child: Text(
+                              _notice!,
+                              style: TextStyle(
+                                color: _error
+                                    ? const Color(0xFFFDA4AF)
+                                    : const Color(0xFF7DD3FC),
+                              ),
                             ),
                           ),
-                        ],
-                        const SizedBox(height: 18),
+                        const SizedBox(height: 16),
                         FilledButton.icon(
-                          onPressed: _busy ? null : _connect,
+                          onPressed: _busy ? null : _register,
                           icon: _busy
                               ? const SizedBox.square(
                                   dimension: 18,
@@ -308,20 +240,18 @@ class _AuthScreenState extends State<AuthScreen> {
                                     strokeWidth: 2,
                                   ),
                                 )
-                              : const Icon(Icons.arrow_forward_rounded),
+                              : const Icon(Icons.qr_code_scanner),
                           label: Text(
                             _busy
                                 ? 'Connecting…'
-                                : _registering
-                                ? 'Register with college roster'
-                                : 'Continue to your account',
+                                : 'Scan lecturer QR and register',
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 OutlinedButton.icon(
                   onPressed: _busy ? null : _offlineDemo,
                   icon: const Icon(Icons.science_outlined),
@@ -329,7 +259,7 @@ class _AuthScreenState extends State<AuthScreen> {
                 ),
                 const SizedBox(height: 7),
                 const Text(
-                  'Demo mode exercises the face and QR flow without saving attendance.',
+                  'Demo mode uses the camera flow without saving attendance.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Color(0xFF718096), fontSize: 11),
                 ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:flutter/material.dart';
 
 import '../../module_1_auth/services/local_attendance_api.dart';
+import '../../module_1_auth/services/student_profile_store.dart';
 import '../../module_1_auth/models/student_session.dart';
 import '../../module_4_liveness/models/liveness_result.dart';
 import '../models/enrollment_profile.dart';
@@ -107,6 +108,9 @@ class _EnrollmentReviewScreenState extends State<EnrollmentReviewScreen> {
         print(
           '[ENROLL] Saved offline demo profile for ${widget.session.studentId}.',
         );
+      }
+      if (!widget.session.offline) {
+        await StudentProfileStore.save(widget.session);
       }
       if (!mounted) return;
       final messenger = ScaffoldMessenger.of(context);
